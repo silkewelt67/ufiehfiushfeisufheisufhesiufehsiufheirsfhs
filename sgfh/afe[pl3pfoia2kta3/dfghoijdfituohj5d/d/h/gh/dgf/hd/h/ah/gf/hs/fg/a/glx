@@ -119,17 +119,21 @@ local function apply(vm)
 
     if overrideArms then
         for _,p in ipairs(arms) do
-            p.Color = armsColor
-            p.Material = armsMat
-            p.Transparency = armsTrans
+            if p.Transparency < 0.99 then
+                p.Color = armsColor
+                p.Material = armsMat
+                p.Transparency = armsTrans
+            end
         end
     end
 
     if overrideWeapon then
         for _,p in ipairs(weapon) do
-            p.Color = weaponColor
-            p.Material = weaponMat
-            p.Transparency = weaponTrans
+            if p.Transparency < 0.99 then
+                p.Color = weaponColor
+                p.Material = weaponMat
+                p.Transparency = weaponTrans
+            end
         end
     end
 
