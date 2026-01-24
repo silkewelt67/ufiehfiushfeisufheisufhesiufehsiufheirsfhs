@@ -926,6 +926,7 @@ local hitmarkerColor = Color3.fromRGB(255, 255, 255)
 local playerl = files.gca("player.png", "images")
 Plr = Window:AddTab('Player', playerl)
 local SpeedTab = Plr:AddLeftGroupbox("Speed")
+local BypassTab = Plr:AddRightGroupbox("Bypass")
 
 speedState = {
     enabled = false,
@@ -938,6 +939,12 @@ local keypickerLabel = toggleObj:AddKeyPicker("speed_keypicker", { Text = "Speed
 local sliderObj = SpeedTab:AddSlider("speed_value", { Text = "Speed Value", Default = 1, Min = 0, Max = 1.5, Rounding = 1 })
 local dropdownObj = SpeedTab:AddDropdown("speed_type", { Text = "Speedhack Type", Values = { "Walkspeed", "CFrame", "TranslateBy" }, Default = 1 })
     
+
+BypassTab:AddToggle('NoFallToggle', {
+    Text = 'Bypass Fall',
+    Default = false,
+    Tooltip = 'prevent fall damage 👉👈🥹🥹🥹🥹😝😝😝'
+})
 task.wait()
 
 keyObj = Options.speed_keypicker
@@ -1340,6 +1347,31 @@ task.spawn(function()
             end
         end
     end)
+end)
+
+
+local NoFallEnabled = false
+Toggles.NoFallToggle:OnChanged(function(Value)
+    NoFallEnabled = Value
+end)
+
+local humanoid = character:FindFirstChildOfClass('Humanoid')
+local rootPart = character:FindFirstChild('HumanoidRootPart')
+
+RunService.Heartbeat:Connect(function()
+    if not NoFallEnabled then return end
+
+    local character = player.Character
+    if not character then return end
+    if not humanoid or not rootPart then return end
+
+    local state = humanoid:GetState()
+    if state == Enum.HumanoidStateType.Freefall then
+        local velY = rootPart.AssemblyLinearVelocity.Y
+        if velY < -12.5 then
+            humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+        end
+    end
 end)
 
 pcall(function() local plr=game.Players.LocalPlayer local ws=game:GetService("Workspace") local function h() local c=plr.Character local hum=c and c:FindFirstChild("Humanoid") if not hum then c=plr.CharacterAdded:Wait() hum=c:WaitForChild("Humanoid") end return hum end local hum=h() local conns={{'CharacterController',hum:GetPropertyChangedSignal('WalkSpeed')},{'CharacterController',hum:GetPropertyChangedSignal('JumpHeight')},{'CharacterController',hum:GetPropertyChangedSignal('HipHeight')},{'CharacterController',ws:GetPropertyChangedSignal('Gravity')},{'CharacterController',hum.StateChanged},{'CharacterController',hum.ChildAdded},{'CharacterController',hum.ChildRemoved}} local function d() for _,arr in ipairs(conns)do for _,conn in ipairs(getconnections(arr[2]))do if type(conn.Function)=="function"then local info=debug.getinfo(conn.Function) if info and string.find(info.source,arr[1])then conn:Disable()end end end end end d() plr.CharacterAdded:Connect(function(c) hum=c:WaitForChild("Humanoid") d() end) end)
