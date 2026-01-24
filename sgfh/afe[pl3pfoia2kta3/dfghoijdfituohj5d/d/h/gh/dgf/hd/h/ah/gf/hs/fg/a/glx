@@ -1380,10 +1380,11 @@ Toggles.NoFallToggle:OnChanged(function(Value)
     NoFallEnabled = Value
 end)
 
+local player = game:GetService("Players").LocalPlayer
 local character = player.Character
 local humanoid = character:FindFirstChildOfClass('Humanoid')
 local rootPart = character:FindFirstChild('HumanoidRootPart')
-
+RunService = game:GetService("RunService")
 RunService.Heartbeat:Connect(function()
     if not NoFallEnabled then return end
 
