@@ -163,6 +163,7 @@ end)
 
 targeting_flags = {
     enabled = false,
+    mitarget = false,
     fov_radius = 200,
     gradient_rot = 0,
     col_a = Color3.fromRGB(255,255,255),
@@ -240,23 +241,43 @@ RunService.RenderStepped:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and targeting_flags.target_players then
             local char = plr.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local head = char and char:FindFirstChild("Head")
             local hum = char and char:FindFirstChild("Humanoid")
-            if hrp and hum and hum.Health > 0 then
-                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+            if head and hum and hum.Health > 0 then
+                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
                 if onscreen then
                     local dist = (Vector2.new(pos.X,pos.Y)-Vector2.new(Mouse.X,Mouse.Y)).Magnitude
                     if dist < shortest then
                         shortest = dist
-                        closest = plr
+                        closest = head
                     end
                 end
             end
         end
     end
 
-    plr_target = closest and closest.Name or nil
+    if targeting_flags.mitarget then
+        local mi24part = workspace:FindFirstChild("AiZones")
+                        and workspace.AiZones:FindFirstChild("HeliAirfield")
+                        and workspace.AiZones.HeliAirfield:FindFirstChild("MI24V")
+                        and workspace.AiZones.HeliAirfield.MI24V:FindFirstChild("Pilots")
+                        and workspace.AiZones.HeliAirfield.MI24V.Pilots:FindFirstChild("CollisionPilot")
+
+        if mi24part then
+            local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(mi24part.Position)
+            if onscreen then
+                local dist = (Vector2.new(pos.X,pos.Y)-Vector2.new(Mouse.X,Mouse.Y)).Magnitude
+                if dist < shortest then
+                    shortest = dist
+                    closest = mi24part
+                end
+            end
+        end
+    end
+
+    plr_target = closest
 end)
+
 
 
 
@@ -463,6 +484,15 @@ CombatTab:AddToggle('EnableTargeting', {
     end
 })
 
+CombatTab:AddToggle('EnableMI', {
+    Text = 'Target MI24V',
+    Default = targeting_flags.mitarget,
+    Callback = function(v)
+        targeting_flags.enabled = v
+        fov.Visible = v
+    end
+})
+
 CombatTab:AddSlider('FOVRadius', {
     Text = 'FOV Radius',
     Default = targeting_flags.fov_radius,
@@ -568,7 +598,6 @@ GunMods:AddLabel("Forcehit Key"):AddKeyPicker("ForceHitBind", {
 })
 
 local ForceHitBindObj = Options.ForceHitBind
-
 RS = game:GetService("RunService")
 ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -606,13 +635,9 @@ local function getTeammates()
     return teammates
 end
 
-local function getTargetPart(playerName)
-    if not playerName or playerName == "" then return nil end
-    local targetPlayer = Workspace:FindFirstChild(playerName)
-    if targetPlayer then
-        return targetPlayer:FindFirstChild("Head")
-    end
-    return nil
+local function getTargetPart()
+    if not plr_target then return nil end
+    return plr_target
 end
 
 local function getItemRoot()
@@ -630,7 +655,7 @@ RS.RenderStepped:Connect(function()
     if now - lastShot < env.RapidFireDelay then return end
     lastShot = now
 
-    local targetPart = getTargetPart(plr_target)
+    local targetPart = getTargetPart()
     if not targetPart then return end
 
     local itemRoot, itemModel = getItemRoot()
@@ -642,6 +667,7 @@ RS.RenderStepped:Connect(function()
     FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, lastShot)
     ProjectileInflict:FireServer(targetPart, targetPart.CFrame:ToObjectSpace(CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))), shotId, 0/0)
 end)
+
 
 
 GunMods:AddToggle("NoRecoilToggle", {
@@ -1239,10 +1265,8 @@ pcall(function()
     local OriginalCreateBullet = BulletModule.CreateBullet
 
     local function resolveTarget()
-        if not plr_target or plr_target == "" then return nil end
-        local targetPlayer = Players:FindFirstChild(plr_target)
-        if not targetPlayer or not targetPlayer.Character then return nil end
-        return targetPlayer.Character:FindFirstChild("Head")
+        if not plr_target then return nil end
+        return plr_target
     end
 
     local function predictVelocity(origin, destination, velocity, speed)
@@ -1281,8 +1305,8 @@ pcall(function()
                         end
                     end
                 end)
-                local ProjectileSpeed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
 
+                local ProjectileSpeed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
                 if type(args[5]) ~= "table" then args[5] = {} end
                 args[5].CFrame = CFrame.new(
                     CurrentCamera.CFrame.Position,
@@ -1305,6 +1329,7 @@ pcall(function()
         return OriginalCreateBullet(table.unpack(args))
     end)
 end)
+
 
 
 
@@ -1354,12 +1379,14 @@ local NoFallEnabled = false
 Toggles.NoFallToggle:OnChanged(function(Value)
     NoFallEnabled = Value
 end)
-local character = player.Character
+
 local humanoid = character:FindFirstChildOfClass('Humanoid')
 local rootPart = character:FindFirstChild('HumanoidRootPart')
 
 RunService.Heartbeat:Connect(function()
     if not NoFallEnabled then return end
+
+    local character = player.Character
     if not character then return end
     if not humanoid or not rootPart then return end
 
