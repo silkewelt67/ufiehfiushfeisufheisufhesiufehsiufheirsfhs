@@ -1569,6 +1569,25 @@ SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 ThemeManager:SetFolder('SOLUTIONS')
 SaveManager:SetFolder('SOLUTIONS/configs')
 SaveManager:BuildConfigSection(USettings)
+
+local BUSettings = USettings:AddLeftGroupbox('Controls')
+BUSettings:AddButton({
+    Text = 'Copy Join Script',
+    Func = function()
+        local placeId = game.PlaceId
+        local jobId = game.JobId
+
+        local joinScript = string.format([[
+local ts = game:GetService("TeleportService")
+ts:TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)
+]], placeId, jobId)
+
+        setclipboard(joinScript)
+        print('exact server join script copied to clipboard!')
+    end,
+    DoubleClick = false,
+})
+
 ThemeManager:ApplyToTab(USettings)
 SaveManager:LoadAutoloadConfig()
 
