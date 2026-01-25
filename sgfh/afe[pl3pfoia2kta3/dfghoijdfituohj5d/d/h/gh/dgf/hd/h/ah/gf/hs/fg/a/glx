@@ -287,18 +287,17 @@ local TargetLabel = Library:AddDraggableLabel("target = nil")
 
 task.spawn(function()
     while task.wait(0.1) do
-        local targetName = plr_target or "nil"
-
+        local targetName = "nil"
         local color = Color3.fromRGB(255, 255, 255)
-        if targetName ~= "nil" then
-            local targetPlayer = Players:FindFirstChild(targetName)
-            if targetPlayer and targetPlayer.Character then
-                local head = targetPlayer.Character:FindFirstChild("Head")
-                if head then
+
+        if typeof(plr_target) == "Instance" and plr_target:IsA("BasePart") then
+            local character = plr_target.Parent
+            if character then
+                local player = Players:GetPlayerFromCharacter(character)
+                if player then
+                    targetName = player.Name
                     color = Color3.fromRGB(0, 255, 0)
                 end
-            else
-                targetName = "nil"
             end
         end
 
@@ -598,6 +597,7 @@ GunMods:AddLabel("Forcehit Key"):AddKeyPicker("ForceHitBind", {
 })
 
 local ForceHitBindObj = Options.ForceHitBind
+
 RS = game:GetService("RunService")
 ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -635,9 +635,9 @@ local function getTeammates()
     return teammates
 end
 
-local function getTargetPart()
+local function getTargetPosition()
     if not plr_target then return nil end
-    return plr_target
+    return plr_target.Position
 end
 
 local function getItemRoot()
@@ -655,18 +655,20 @@ RS.RenderStepped:Connect(function()
     if now - lastShot < env.RapidFireDelay then return end
     lastShot = now
 
-    local targetPart = getTargetPart()
-    if not targetPart then return end
+    local targetPos = getTargetPosition()
+    if not targetPos then return end
 
     local itemRoot, itemModel = getItemRoot()
     if not itemRoot then return end
 
-    itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPart.Position)
+    itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPos)
     local shotId = math.random(-10000, 10000)
 
     FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, lastShot)
-    ProjectileInflict:FireServer(targetPart, targetPart.CFrame:ToObjectSpace(CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))), shotId, 0/0)
+    ProjectileInflict:FireServer(plr_target, CFrame.new(targetPos), shotId, 0/0)
 end)
+
+
 
 
 
@@ -930,24 +932,166 @@ LeftGroupBox:AddToggle("InstantHit", {
     end
 })
 
-local btt = LeftGroupBox:AddToggle("BulletTracer", {
-    Text = "Bullet Tracer",
+local hitmarkerColor = Color3.fromRGB(255, 255, 255)
+
+local TracerGroup = Combat:AddRightGroupbox("FX")
+
+local ws = workspace
+local RunService = game:GetService("RunService")
+local Camera = ws:WaitForChild("Camera")
+
+local EnableTracers = TracerGroup:AddToggle("EnableTracers", {
+    Text = "Bullet Tracers",
     Default = false,
-    Tooltip = "Show bullet tracers",
-    Callback = function(value)
-        silent_aim.tracer = value
-    end
-})
-local tracerColor = Color3.fromRGB(255, 255, 255)
-btt:AddColorPicker("TracerColor", {
-    Default = tracerColor,
-    Title = "Tracer Color",
-    Callback = function(value)
-        tracerColor = value
-    end
+    Tooltip = "Toggle bullet tracers on/off",
 })
 
-local hitmarkerColor = Color3.fromRGB(255, 255, 255)
+local TracerColorStart = EnableTracers:AddColorPicker("TracerColorStart", {
+    Default = Color3.fromRGB(255, 80, 80),
+    Title = "Start Color",
+})
+
+local TracerColorEnd = EnableTracers:AddColorPicker("TracerColorEnd", {
+    Default = Color3.fromRGB(255, 255, 80),
+    Title = "End Color",
+})
+
+local textures = {
+    Neon = "rbxassetid://90961491521758",
+    Lightning = "rbxassetid://247707396",
+    ["Tiny Lightning"] = "rbxassetid://7151778302",
+    Wave = "rbxassetid://123453630521207",
+    Beam = "rbxassetid://6376702661",
+}
+
+local TracerTexture = TracerGroup:AddDropdown("TracerTexture", {
+    Values = {"Neon","Lightning","Tiny Lightning","Wave","Beam"},
+    Default = "Neon",
+    Multi = false,
+    Text = "Tracer Texture",
+    Tooltip = "Select your tracer texture",
+})
+
+local TracerWidth = TracerGroup:AddSlider("TracerWidth", {Text = "Tracer Width", Default = 0.08, Min = 0.01, Max = 1, Rounding = 2})
+local TracerLifetime = TracerGroup:AddSlider("TracerLifetime", {Text = "Tracer Lifetime", Default = 0.25, Min = 0.05, Max = 2, Rounding = 2})
+local TracerFade = TracerGroup:AddSlider("TracerFade", {Text = "Tracer Fadeout", Default = 0.25, Min = 0.05, Max = 2, Rounding = 2})
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
+rayParams.FilterDescendantsInstances = {ws:FindFirstChild("NoCollision"), Camera}
+
+local function createBeam(origin, target)
+    if not EnableTracers.Value then return end
+
+    -- grab colors safely
+    local startColor = TracerColorStart.Value
+    if typeof(startColor) ~= "Color3" then
+        startColor = Color3.fromRGB(255, 80, 80)
+    end
+
+    local endColor = TracerColorEnd.Value
+    if typeof(endColor) ~= "Color3" then
+        endColor = startColor
+    end
+
+    local texture = textures[TracerTexture.Value] or textures.Neon
+    local width = TracerWidth.Value
+    local lifetime = TracerLifetime.Value
+    local fadeout = TracerFade.Value
+
+    -- parts
+    local p1 = Instance.new("Part", ws)
+    local p2 = Instance.new("Part", ws)
+    p1.Position = origin
+    p2.Position = target
+    p1.Anchored = true
+    p2.Anchored = true
+    p1.CanCollide = false
+    p2.CanCollide = false
+    p1.Size = Vector3.zero
+    p2.Size = Vector3.zero
+    p1.Transparency = 1
+    p2.Transparency = 1
+
+    local a1 = Instance.new("Attachment", p1)
+    local a2 = Instance.new("Attachment", p2)
+
+    -- beam
+    local beam = Instance.new("Beam", ws)
+    beam.Attachment0 = a1
+    beam.Attachment1 = a2
+
+    -- **always pass a table of ColorSequenceKeypoints**
+    beam.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, startColor),
+        ColorSequenceKeypoint.new(1, endColor)
+    })
+
+    beam.LightEmission = 1
+    beam.LightInfluence = 1
+    beam.TextureMode = Enum.TextureMode.Static
+    beam.Texture = texture
+    beam.FaceCamera = true
+    beam.Width0 = width
+    beam.Width1 = width
+    beam.Segments = 1
+    beam.Transparency = NumberSequence.new(0)
+
+    local startTime = tick()
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        local elapsed = tick() - startTime
+        local alpha = math.clamp(elapsed / fadeout, 0, 1)
+        beam.Transparency = NumberSequence.new(alpha)
+        if elapsed >= lifetime then
+            conn:Disconnect()
+            p1:Destroy()
+            p2:Destroy()
+            beam:Destroy()
+        end
+    end)
+end
+
+local function watchItem(item)
+    if not item then return end
+    local barrel = item:FindFirstChild("Barrel")
+    if not barrel then return end
+
+    barrel.ChildAdded:Connect(function(child)
+        if child.Name:lower() == "smoke" then
+            local origin = barrel.Position
+            local direction = barrel.CFrame.LookVector * 1000
+            local result = ws:Raycast(origin, direction, rayParams)
+            local hitPos = result and result.Position or (origin + direction)
+            createBeam(origin, hitPos)
+        end
+    end)
+end
+
+local function watchViewModel(vm)
+    if not vm then return end
+    local function attachItem(item) watchItem(item) end
+
+    local item = vm:FindFirstChild("Item")
+    if item then attachItem(item) end
+
+    vm.ChildAdded:Connect(function(child)
+        if child.Name:lower() == "item" then attachItem(child) end
+    end)
+end
+
+if Camera:FindFirstChild("ViewModel") then
+    watchViewModel(Camera.ViewModel)
+end
+
+Camera.ChildAdded:Connect(function(child)
+    if child.Name:lower() == "viewmodel" then
+        watchViewModel(child)
+    end
+end)
+
+
 
 local playerl = files.gca("player.png", "images")
 Plr = Window:AddTab('Player', playerl)
@@ -1206,56 +1350,6 @@ end
 
 local TweenService = game:GetService("TweenService")
 
-local function createBeam(origin, target, color, lifetime, size)
-    local ws = workspace:FindFirstChild("NoCollision") or workspace
-    local p1 = Instance.new("Part", ws)
-    local p2 = Instance.new("Part", ws)
-    p1.Position = origin
-    p2.Position = target
-    p1.Anchored = true
-    p2.Anchored = true
-    p1.CanCollide = false
-    p2.CanCollide = false
-    p1.Size = Vector3.zero
-    p2.Size = Vector3.zero
-    p1.Transparency = 1
-    p2.Transparency = 1
-
-    local att1 = Instance.new("Attachment", p1)
-    local att2 = Instance.new("Attachment", p2)
-
-    local beam = Instance.new("Beam", ws)
-    beam.Attachment0 = att1
-    beam.Attachment1 = att2
-    beam.Color = ColorSequence.new({ 
-        ColorSequenceKeypoint.new(0, color), 
-        ColorSequenceKeypoint.new(1, color) 
-    })
-    beam.LightEmission = 1
-    beam.LightInfluence = 1
-    beam.TextureMode = Enum.TextureMode.Static
-    beam.Texture = "http://www.roblox.com/asset/?id=131326755401058"
-    beam.FaceCamera = true
-    beam.Width0 = size
-    beam.Width1 = size
-    beam.Segments = 1
-    beam.Transparency = NumberSequence.new(0)
-
-    local start = tick()
-    local conn
-    conn = game:GetService("RunService").RenderStepped:Connect(function(dt)
-        local elapsed = tick() - start
-        local alpha = math.clamp(elapsed / lifetime, 0, 1)
-        beam.Transparency = NumberSequence.new(alpha)
-        if alpha >= 1 then
-            conn:Disconnect()
-            p1:Destroy()
-            p2:Destroy()
-            beam:Destroy()
-        end
-    end)
-end
-
 pcall(function()
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1267,6 +1361,11 @@ pcall(function()
     local function resolveTarget()
         if not plr_target then return nil end
         return plr_target
+    end
+
+    local function resolveTargetPosition()
+        if not plr_target then return nil end
+        return plr_target.Position
     end
 
     local function predictVelocity(origin, destination, velocity, speed)
@@ -1290,9 +1389,10 @@ pcall(function()
     BulletModule.CreateBullet = newcclosure(function(...)
         local args = {...}
         if silent_aim.enabled and plr_target then
-            local head = resolveTarget()
-            if head then
-                silent_aim.target_part = head
+            local targetPart = resolveTarget()
+            local targetPos = resolveTargetPosition()
+            if targetPart and targetPos then
+                silent_aim.target_part = targetPart
 
                 local loadedammo = nil
                 pcall(function()
@@ -1310,11 +1410,11 @@ pcall(function()
                 if type(args[5]) ~= "table" then args[5] = {} end
                 args[5].CFrame = CFrame.new(
                     CurrentCamera.CFrame.Position,
-                    predictVelocity(CurrentCamera.CFrame.Position, head.Position, head.Velocity, ProjectileSpeed)
+                    predictVelocity(CurrentCamera.CFrame.Position, targetPos, targetPart.Velocity or Vector3.new(), ProjectileSpeed)
                 )
 
                 if silent_aim.tracer then
-                    createBeam(CurrentCamera.CFrame.Position, head.Position, tracerColor, 2, 0.5)
+                    print("tracer placeholder")
                 end
                 if silent_aim.hitmarkers and typeof(showHitmarker) == "function" then
                     print("hitmarker placeholder")
