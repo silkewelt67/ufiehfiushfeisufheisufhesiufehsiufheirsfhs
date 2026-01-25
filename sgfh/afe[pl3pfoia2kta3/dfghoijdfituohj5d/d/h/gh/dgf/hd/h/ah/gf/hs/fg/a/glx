@@ -1610,7 +1610,68 @@ Options.UR_Amount:OnChanged(function()
     getgenv().UR_Amount = Options.UR_Amount.Value
 end)
 
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
 
+local character, hrp
+
+local function bindCharacter(char)
+    character = char
+    hrp = char:WaitForChild("HumanoidRootPart")
+end
+
+bindCharacter(player.Character or player.CharacterAdded:Wait())
+player.CharacterAdded:Connect(bindCharacter)
+
+getgenv().SP_Enabled = false
+getgenv().SP_Amount = 10
+getgenv().SP_FireType = "On Press"
+
+local function pulse()
+    if not getgenv().SP_Enabled or not hrp then return end
+    hrp.CFrame = hrp.CFrame * CFrame.new(0, getgenv().SP_Amount, 0)
+end
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if getgenv().SP_Enabled and getgenv().SP_FireType == "On Press" and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        pulse()
+    end
+end)
+
+pcall(function()
+    local mt = getrawmetatable(game)
+    local old = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local success, method = pcall(getnamecallmethod)
+        if success and method == "InvokeServer" and self.Name == "FireProjectile" then
+            if getgenv().SP_Enabled and getgenv().SP_FireType == "On Remote" then
+                pulse()
+            end
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+end)
+
+local SPToggle = hvhTab:AddToggle("SP_Toggle", {Text = "Sky Peek", Default = false})
+SPToggle:AddKeyPicker("SP_Key", {Text = "Sky Peek", Default = "None", SyncToggleState = true})
+local SPType = hvhTab:AddDropdown("SP_Type", {Text = "Fire Type", Values = {"On Press", "On Remote"}, Default = 1})
+local SPAmount = hvhTab:AddSlider("SP_Amount", {Text = "Height (Studs)", Min = 1, Max = 50, Default = 10, Rounding = 1})
+
+SPToggle:OnChanged(function()
+    getgenv().SP_Enabled = Toggles.SP_Toggle.Value
+end)
+
+Options.SP_Type:OnChanged(function()
+    getgenv().SP_FireType = Options.SP_Type.Value
+end)
+
+Options.SP_Amount:OnChanged(function()
+    getgenv().SP_Amount = Options.SP_Amount.Value
+end)
 
 local BypassTab = Plr:AddRightGroupbox("Bypass")
 
