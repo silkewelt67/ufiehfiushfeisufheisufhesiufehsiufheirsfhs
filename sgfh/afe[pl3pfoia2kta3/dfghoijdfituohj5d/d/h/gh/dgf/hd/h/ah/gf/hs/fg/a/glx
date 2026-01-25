@@ -1890,225 +1890,6 @@ notifyl("logic","speedhack")
 
 
 
-ChamData = {}
-
-ChamsEnabled = false
-HighlightOn = true
-BoxesOn = false
-GlowOn = false
-FillTrans = 0.5
-OutlineTrans = 0
-FillColor = Color3.fromRGB(255,255,255)
-OutlineColor = Color3.fromRGB(255,255,255)
-GlowColor = Color3.fromRGB(255,255,255)
-GlowIntensity = 25
-
-Limbs = {"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
-               "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg",
-               "LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-local function UpdateChamsForAll()
-    for plr, data in pairs(ChamData) do
-        if data.Highlight then
-            data.Highlight.Enabled = ChamsEnabled and HighlightOn
-            data.Highlight.FillColor = FillColor
-            data.Highlight.OutlineColor = OutlineColor
-            data.Highlight.FillTransparency = FillTrans
-            data.Highlight.OutlineTransparency = OutlineTrans
-        end
-
-        if data.Box then
-            for _, box in pairs(data.Box) do
-                box.Visible = ChamsEnabled and BoxesOn
-                box.Color3 = FillColor
-                box.Transparency = FillTrans
-            end
-        end
-
-        if data.Glow then
-            for _, g in pairs(data.Glow) do
-                g.Ador.Visible = ChamsEnabled and GlowOn
-                local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
-                local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
-                local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
-                g.Ador.Color3 = Color3.fromRGB(r, g_val, b)
-            end
-        end
-    end
-end
-
-local function SetupGlowForCharacter(char)
-    local GlowParts = {}
-    local function recurse(part)
-        if part:IsA("BasePart") or part:IsA("MeshPart") then
-            for _, l in pairs(Limbs) do
-                if part.Name == l then
-                    local adorn = Instance.new("BoxHandleAdornment")
-                    adorn.Size = part.Size
-                    adorn.Adornee = part
-                    local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
-                    local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
-                    local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
-                    adorn.Color3 = Color3.fromRGB(r, g_val, b)
-                    adorn.ZIndex = 5
-                    adorn.AlwaysOnTop = false
-                    adorn.Visible = ChamsEnabled and GlowOn
-                    adorn.Parent = part
-                    table.insert(GlowParts, {Part=part, Ador=adorn})
-                    break
-                end
-            end
-        end
-        for _, c in pairs(part:GetChildren()) do recurse(c) end
-    end
-    recurse(char)
-    return GlowParts
-end
-
-local function SetupChamsForCharacter(plr, char)
-    repeat task.wait() until char and char:FindFirstChild("HumanoidRootPart")
-
-    if ChamData[plr] then
-        local prev = ChamData[plr]
-        if prev.Highlight then prev.Highlight:Destroy() end
-        if prev.Box then for _, b in pairs(prev.Box) do b:Destroy() end end
-        if prev.Glow then for _, g in pairs(prev.Glow) do if g.Ador then g.Ador:Destroy() end end end
-    end
-
-    local h = Instance.new("Highlight")
-    h.Adornee = char
-    h.FillColor = FillColor
-    h.OutlineColor = OutlineColor
-    h.FillTransparency = FillTrans
-    h.OutlineTransparency = OutlineTrans
-    h.Enabled = ChamsEnabled and HighlightOn
-    h.Parent = workspace
-
-    local Boxes = {}
-    for _, limbName in pairs(Limbs) do
-        local part = char:FindFirstChild(limbName)
-        if part and part:IsA("BasePart") then
-            local box = Instance.new("BoxHandleAdornment")
-            box.Size = part.Size
-            box.Adornee = part
-            box.ZIndex = 3
-            box.AlwaysOnTop = true
-            box.Visible = ChamsEnabled and BoxesOn
-            box.Color3 = FillColor
-            box.Transparency = FillTrans
-            box.Parent = part
-            table.insert(Boxes, box)
-        end
-    end
-
-    local GlowParts = SetupGlowForCharacter(char)
-
-    ChamData[plr] = {Highlight=h, Box=Boxes, Glow=GlowParts}
-    UpdateChamsForAll()
-end
-
-local function ApplyChamsToPlayer(plr)
-    if plr ~= LocalPlayer then
-        if plr.Character then
-            SetupChamsForCharacter(plr, plr.Character)
-        end
-        plr.CharacterAdded:Connect(function(char)
-            task.wait(1)
-            SetupChamsForCharacter(plr, char)
-        end)
-    end
-end
-
-for _, plr in pairs(Players:GetPlayers()) do
-    ApplyChamsToPlayer(plr)
-end
-
-Players.PlayerAdded:Connect(function(plr)
-    ApplyChamsToPlayer(plr)
-end)
-
-
-
-local GlowChamsFixEnabled = false
-local OriginalTransparency = {}
-
-local function SetCharacterTransparency(char, transparency)
-    if not char then return end
-    if not OriginalTransparency[char] then OriginalTransparency[char] = {} end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("MeshPart") then
-            if OriginalTransparency[char][part] == nil then
-                OriginalTransparency[char][part] = part.Transparency
-            end
-            part.Transparency = transparency
-        end
-    end
-end
-
-local function RestoreCharacterTransparency(char)
-    if OriginalTransparency[char] then
-        for part, orig in pairs(OriginalTransparency[char]) do
-            if part and part.Parent then
-                part.Transparency = orig
-            end
-        end
-        OriginalTransparency[char] = nil
-    end
-end
-
-local function ApplyGlowChamsFixToPlayer(plr)
-    local function applyFix(char)
-        task.spawn(function()
-            task.wait(0.05)
-            if GlowChamsFixEnabled then
-                SetCharacterTransparency(char, 0.99)
-            end
-        end)
-    end
-
-    if plr.Character then
-        applyFix(plr.Character)
-    end
-    plr.CharacterAdded:Connect(applyFix)
-end
-
-for _, plr in pairs(Players:GetPlayers()) do
-    if plr ~= LocalPlayer then
-        ApplyGlowChamsFixToPlayer(plr)
-    end
-end
-
-Players.PlayerAdded:Connect(function(plr)
-    if plr ~= LocalPlayer then
-        ApplyGlowChamsFixToPlayer(plr)
-    end
-end)
-
-
-
-local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
-    Text = "Glowchams Fix",
-    Default = false,
-    Callback = function(val)
-        GlowChamsFixEnabled = val
-        for _, plr in pairs(game.Players:GetPlayers()) do
-            if plr ~= game.Players.LocalPlayer then
-                if GlowChamsFixEnabled then
-                    ApplyGlowChamsFixToPlayer(plr)
-                else
-                    if plr.Character then
-                        RestoreCharacterTransparency(plr.Character)
-                    end
-                end
-            end
-        end
-    end
-})
-
 end)
 registerFuncAuto(function()
 notifyl("logic","chams")
@@ -2489,6 +2270,224 @@ end)
 
 
 
+ChamData = {}
+
+ChamsEnabled = false
+HighlightOn = true
+BoxesOn = false
+GlowOn = false
+FillTrans = 0.5
+OutlineTrans = 0
+FillColor = Color3.fromRGB(255,255,255)
+OutlineColor = Color3.fromRGB(255,255,255)
+GlowColor = Color3.fromRGB(255,255,255)
+GlowIntensity = 25
+
+Limbs = {"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
+               "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg",
+               "LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local function UpdateChamsForAll()
+    for plr, data in pairs(ChamData) do
+        if data.Highlight then
+            data.Highlight.Enabled = ChamsEnabled and HighlightOn
+            data.Highlight.FillColor = FillColor
+            data.Highlight.OutlineColor = OutlineColor
+            data.Highlight.FillTransparency = FillTrans
+            data.Highlight.OutlineTransparency = OutlineTrans
+        end
+
+        if data.Box then
+            for _, box in pairs(data.Box) do
+                box.Visible = ChamsEnabled and BoxesOn
+                box.Color3 = FillColor
+                box.Transparency = FillTrans
+            end
+        end
+
+        if data.Glow then
+            for _, g in pairs(data.Glow) do
+                g.Ador.Visible = ChamsEnabled and GlowOn
+                local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
+                local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
+                local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
+                g.Ador.Color3 = Color3.fromRGB(r, g_val, b)
+            end
+        end
+    end
+end
+
+local function SetupGlowForCharacter(char)
+    local GlowParts = {}
+    local function recurse(part)
+        if part:IsA("BasePart") or part:IsA("MeshPart") then
+            for _, l in pairs(Limbs) do
+                if part.Name == l then
+                    local adorn = Instance.new("BoxHandleAdornment")
+                    adorn.Size = part.Size
+                    adorn.Adornee = part
+                    local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
+                    local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
+                    local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
+                    adorn.Color3 = Color3.fromRGB(r, g_val, b)
+                    adorn.ZIndex = 5
+                    adorn.AlwaysOnTop = false
+                    adorn.Visible = ChamsEnabled and GlowOn
+                    adorn.Parent = part
+                    table.insert(GlowParts, {Part=part, Ador=adorn})
+                    break
+                end
+            end
+        end
+        for _, c in pairs(part:GetChildren()) do recurse(c) end
+    end
+    recurse(char)
+    return GlowParts
+end
+
+local function SetupChamsForCharacter(plr, char)
+    repeat task.wait() until char and char:FindFirstChild("HumanoidRootPart")
+
+    if ChamData[plr] then
+        local prev = ChamData[plr]
+        if prev.Highlight then prev.Highlight:Destroy() end
+        if prev.Box then for _, b in pairs(prev.Box) do b:Destroy() end end
+        if prev.Glow then for _, g in pairs(prev.Glow) do if g.Ador then g.Ador:Destroy() end end end
+    end
+
+    local h = Instance.new("Highlight")
+    h.Adornee = char
+    h.FillColor = FillColor
+    h.OutlineColor = OutlineColor
+    h.FillTransparency = FillTrans
+    h.OutlineTransparency = OutlineTrans
+    h.Enabled = ChamsEnabled and HighlightOn
+    h.Parent = workspace
+
+    local Boxes = {}
+    for _, limbName in pairs(Limbs) do
+        local part = char:FindFirstChild(limbName)
+        if part and part:IsA("BasePart") then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Size = part.Size
+            box.Adornee = part
+            box.ZIndex = 3
+            box.AlwaysOnTop = true
+            box.Visible = ChamsEnabled and BoxesOn
+            box.Color3 = FillColor
+            box.Transparency = FillTrans
+            box.Parent = part
+            table.insert(Boxes, box)
+        end
+    end
+
+    local GlowParts = SetupGlowForCharacter(char)
+
+    ChamData[plr] = {Highlight=h, Box=Boxes, Glow=GlowParts}
+    UpdateChamsForAll()
+end
+
+local function ApplyChamsToPlayer(plr)
+    if plr ~= LocalPlayer then
+        if plr.Character then
+            SetupChamsForCharacter(plr, plr.Character)
+        end
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(1)
+            SetupChamsForCharacter(plr, char)
+        end)
+    end
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+    ApplyChamsToPlayer(plr)
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    ApplyChamsToPlayer(plr)
+end)
+
+
+
+local GlowChamsFixEnabled = false
+local OriginalTransparency = {}
+
+local function SetCharacterTransparency(char, transparency)
+    if not char then return end
+    if not OriginalTransparency[char] then OriginalTransparency[char] = {} end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("MeshPart") then
+            if OriginalTransparency[char][part] == nil then
+                OriginalTransparency[char][part] = part.Transparency
+            end
+            part.Transparency = transparency
+        end
+    end
+end
+
+local function RestoreCharacterTransparency(char)
+    if OriginalTransparency[char] then
+        for part, orig in pairs(OriginalTransparency[char]) do
+            if part and part.Parent then
+                part.Transparency = orig
+            end
+        end
+        OriginalTransparency[char] = nil
+    end
+end
+
+local function ApplyGlowChamsFixToPlayer(plr)
+    local function applyFix(char)
+        task.spawn(function()
+            task.wait(0.05)
+            if GlowChamsFixEnabled then
+                SetCharacterTransparency(char, 0.99)
+            end
+        end)
+    end
+
+    if plr.Character then
+        applyFix(plr.Character)
+    end
+    plr.CharacterAdded:Connect(applyFix)
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        ApplyGlowChamsFixToPlayer(plr)
+    end
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= LocalPlayer then
+        ApplyGlowChamsFixToPlayer(plr)
+    end
+end)
+
+
+
+local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
+    Text = "Glowchams Fix",
+    Default = false,
+    Callback = function(val)
+        GlowChamsFixEnabled = val
+        for _, plr in pairs(game.Players:GetPlayers()) do
+            if plr ~= game.Players.LocalPlayer then
+                if GlowChamsFixEnabled then
+                    ApplyGlowChamsFixToPlayer(plr)
+                else
+                    if plr.Character then
+                        RestoreCharacterTransparency(plr.Character)
+                    end
+                end
+            end
+        end
+    end
+})
 
 
 end)
