@@ -316,7 +316,7 @@ local RunService=game:GetService("RunService")
 local HttpService=game:GetService("HttpService")
 
 local Fonts={}
-local FontNames={Minecraftia="minecraftia.ttf",Tahoma="fs-tahoma-8px.ttf"}
+local FontNames={Minecraftia="minecraftia.ttf",Tahoma="fs-tahoma-8px.ttf",Heavy="smallest_pixel-7.ttf"}
 local function RegisterFont(Name,Asset)
  if not isfile(Asset.Id) then writefile(Asset.Id,Asset.Font) end
  if isfile(Name..".font") then delfile(Name..".font") end
@@ -348,7 +348,9 @@ SubChams=ChamSubtab:AddTab("Chams")
 SubChamsPersonal=ChamSubtab:AddTab("Personalisation")
 
 
-boxEspEnabled,nameEspEnabled,hpBarEnabled,hpFlagEnabled=false,false,false,false
+boxEspEnabled, nameEspEnabled, hpBarEnabled, hpFlagEnabled = false, false, false, false
+visibleFlagEnabled, invisibleFlagEnabled = false, false
+itemFlagEnabled = falsed
 rainbowBox,rainbowName,rainbowHP=false,false,false
 name_size=10
 nametagFont=Fonts.Minecraftia
@@ -360,9 +362,12 @@ SubESP:AddToggle("BoxESP",{Text="Box ESP",Default=false,Callback=function(v) box
 SubESP:AddToggle("NameESP",{Text="Nametag ESP",Default=false,Callback=function(v) nameEspEnabled=v end})
 SubESP:AddToggle("HPBar",{Text="HP Bar",Default=false,Callback=function(v) hpBarEnabled=v end})
 SubESP:AddToggle("HPFlag",{Text="HP Flag",Default=false,Callback=function(v) hpFlagEnabled=v end})
+SubESP:AddToggle("VisibleFlag",{Text="Visible Flag",Default=false,Callback=function(v) visibleFlagEnabled=v end})
+SubESP:AddToggle("InvisibleFlag",{Text="Hidden Flag",Default=false,Callback=function(v) invisibleFlagEnabled=v end})
+SubESP:AddToggle("ItemFlag", {Text="Item Flag", Default=false, Callback=function(v) itemFlagEnabled=v end})
 
 SubPersonal:AddSlider("NameSize",{Text="Name Size",Min=6,Max=40,Default=name_size,Rounding=0,Callback=function(v) name_size=v end})
-SubPersonal:AddDropdown("NameFont",{Values={"Minecraftia","Tahoma"},Default=1,Text="Nametag Font",Callback=function(val) nametagFont=Fonts[val] end})
+SubPersonal:AddDropdown("NameFont",{Values={"Minecraftia","Tahoma","Heavy"},Default=1,Text="Nametag Font",Callback=function(val) nametagFont=Fonts[val] end})
 SubPersonal:AddDropdown("NameCase",{Values={"Lowercase","Uppercase","Titlecase"},Default=3,Text="Nametag Casing",Callback=function(v) casingMode=v end})
 SubPersonal:AddToggle("RainbowBox",{Text="Rainbow Box",Default=false,Callback=function(v) rainbowBox=v end})
 SubPersonal:AddToggle("RainbowName",{Text="Rainbow Nametag",Default=false,Callback=function(v) rainbowName=v end})
@@ -610,13 +615,11 @@ local ProjectileInflict = Remotes:WaitForChild("ProjectileInflict")
 local function getTargetPart()
     if not plr_target or plr_target == "" then return nil end
 
-    -- player
     local plr = Players:FindFirstChild(plr_target)
     if plr and plr.Character then
         return plr.Character:FindFirstChild("Head")
     end
 
-    -- ai path
     local cur = workspace
     for seg in string.gmatch(plr_target, "[^/]+") do
         cur = cur and cur:FindFirstChild(seg)
@@ -1119,7 +1122,6 @@ rayParams.FilterDescendantsInstances = {ws:FindFirstChild("NoCollision"), Camera
 local function createBeam(origin, target)
     if not EnableTracers.Value then return end
 
-    -- grab colors safely
     local startColor = TracerColorStart.Value
     if typeof(startColor) ~= "Color3" then
         startColor = Color3.fromRGB(255, 80, 80)
@@ -1135,7 +1137,6 @@ local function createBeam(origin, target)
     local lifetime = TracerLifetime.Value
     local fadeout = TracerFade.Value
 
-    -- parts
     local p1 = Instance.new("Part", ws)
     local p2 = Instance.new("Part", ws)
     p1.Position = origin
@@ -1152,12 +1153,10 @@ local function createBeam(origin, target)
     local a1 = Instance.new("Attachment", p1)
     local a2 = Instance.new("Attachment", p2)
 
-    -- beam
     local beam = Instance.new("Beam", ws)
     beam.Attachment0 = a1
     beam.Attachment1 = a2
 
-    -- **always pass a table of ColorSequenceKeypoints**
     beam.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, startColor),
         ColorSequenceKeypoint.new(1, endColor)
@@ -1369,6 +1368,73 @@ end)
 
 
 local SpeedTab = Plr:AddLeftGroupbox("Speed")
+local hvhTab = Plr:AddRightGroupbox("HVH")
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+local character, hrp
+
+local function bindCharacter(char)
+    character = char
+    hrp = char:WaitForChild("HumanoidRootPart")
+end
+
+bindCharacter(player.Character or player.CharacterAdded:Wait())
+player.CharacterAdded:Connect(bindCharacter)
+
+getgenv().UR_Enabled = false
+getgenv().UR_Amount = 10
+getgenv().UR_FireType = "On Press"
+
+local function pulse()
+    if not getgenv().UR_Enabled or not hrp then return end
+    hrp.CFrame = hrp.CFrame * CFrame.new(0, -getgenv().UR_Amount, 0)
+end
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if getgenv().UR_Enabled and getgenv().UR_FireType == "On Press" and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        pulse()
+    end
+end)
+
+pcall(function()
+    local mt = getrawmetatable(game)
+    local old = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local success, method = pcall(getnamecallmethod)
+        if success and method == "InvokeServer" and self.Name == "FireProjectile" then
+            if getgenv().UR_Enabled and getgenv().UR_FireType == "On Remote" then
+                pulse()
+            end
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+end)
+
+local URToggle = hvhTab:AddToggle("UR_Toggle", {Text = "Underground Resolver", Default = false})
+URToggle:AddKeyPicker("UR_Key", {Text = "Resolver [UG]",Default = "None", SyncToggleState = true})
+local URType = hvhTab:AddDropdown("UR_Type", {Text = "Fire Type", Values = {"On Press", "On Remote"}, Default = 1})
+local URAmount = hvhTab:AddSlider("UR_Amount", {Text = "Depth (Studs)", Min = 1, Max = 50, Default = 10, Rounding = 1})
+
+URToggle:OnChanged(function()
+    getgenv().UR_Enabled = Toggles.UR_Toggle.Value
+end)
+
+Options.UR_Type:OnChanged(function()
+    getgenv().UR_FireType = Options.UR_Type.Value
+end)
+
+Options.UR_Amount:OnChanged(function()
+    getgenv().UR_Amount = Options.UR_Amount.Value
+end)
+
+
+
 local BypassTab = Plr:AddRightGroupbox("Bypass")
 
 speedState = {
@@ -1486,8 +1552,20 @@ local zoomToggle = CamTab:AddToggle("ZoomOverride", {Text = "Zoom FOV Override",
 zoomToggle:AddKeyPicker("ZoomKey", {Text = "Zoom", Default = "None", Mode = "Toggle"})
 local zoomSlider = CamTab:AddSlider("ZoomFOV", {Text = "Zoom FOV Value", Default = 10, Min = 1, Max = 70, Rounding = 1})
 
+local scrollToggle = CamTab:AddToggle("ScrollFOV", {Text = "Scroll FOV", Default = false})
+local scrollAmount = 5 -- nts replace this with a slider 🌹
+
 local Camera = workspace.CurrentCamera
-zoomKeyObj = Options.ZoomKey
+local UIS = game:GetService("UserInputService")
+local zoomKeyObj = Options.ZoomKey
+local scrollFOV = 90
+
+UIS.InputChanged:Connect(function(input)
+    if scrollToggle.Value and input.UserInputType == Enum.UserInputType.MouseWheel then
+        local delta = input.Position.Z
+        scrollFOV = math.clamp(scrollFOV - (delta * scrollAmount), 1, 120)
+    end
+end)
 
 task.spawn(function()
     local RunService = game:GetService("RunService")
@@ -1501,13 +1579,13 @@ task.spawn(function()
             Camera.FieldOfView = Options.ZoomFOV.Value
         elseif fovToggle.Value then
             Camera.FieldOfView = Options.FOVValue.Value
+        elseif scrollToggle.Value then
+            Camera.FieldOfView = scrollFOV
         else
             Camera.FieldOfView = 90
         end
     end
 end)
-
-
 game:GetService("RunService").RenderStepped:Connect(updateFOV)
 print('\n')
 print('\n')
@@ -1561,7 +1639,6 @@ MenuGroup:AddLabel("Menu bind")
 	:AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
 
 Library.ToggleKeybind = Options.MenuKeybind
-
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
@@ -1813,36 +1890,77 @@ notifyl("logic","speedhack")
 
 
 
+ChamData = {}
+
+ChamsEnabled = false
+HighlightOn = true
+BoxesOn = false
+GlowOn = false
+FillTrans = 0.5
+OutlineTrans = 0
+FillColor = Color3.fromRGB(255,255,255)
+OutlineColor = Color3.fromRGB(255,255,255)
+GlowColor = Color3.fromRGB(255,255,255)
+GlowIntensity = 25
+
+Limbs = {"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
+               "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg",
+               "LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
-local function SetupGlowForCharacter(plr, char)
-    local GlowParts = {}
-    local function recurse(part)
-        if part:IsA("BasePart") or part:IsA("MeshPart") then
-            local isLimb = false
-            for _, l in pairs(Limbs) do if part.Name == l then isLimb = true break end end
-            if isLimb then
-                local adorn = Instance.new("BoxHandleAdornment")
-                adorn.Size = part.Size
-                adorn.Adornee = part
+local function UpdateChamsForAll()
+    for plr, data in pairs(ChamData) do
+        if data.Highlight then
+            data.Highlight.Enabled = ChamsEnabled and HighlightOn
+            data.Highlight.FillColor = FillColor
+            data.Highlight.OutlineColor = OutlineColor
+            data.Highlight.FillTransparency = FillTrans
+            data.Highlight.OutlineTransparency = OutlineTrans
+        end
+
+        if data.Box then
+            for _, box in pairs(data.Box) do
+                box.Visible = ChamsEnabled and BoxesOn
+                box.Color3 = FillColor
+                box.Transparency = FillTrans
+            end
+        end
+
+        if data.Glow then
+            for _, g in pairs(data.Glow) do
+                g.Ador.Visible = ChamsEnabled and GlowOn
                 local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
                 local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
                 local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
-                adorn.Color3 = Color3.fromRGB(r, g_val, b)
-                adorn.ZIndex = 5
-                adorn.AlwaysOnTop = false
-                adorn.Visible = ChamsEnabled and GlowOn
-                adorn.Parent = part
+                g.Ador.Color3 = Color3.fromRGB(r, g_val, b)
+            end
+        end
+    end
+end
 
-                local function hideAll(p)
+local function SetupGlowForCharacter(char)
+    local GlowParts = {}
+    local function recurse(part)
+        if part:IsA("BasePart") or part:IsA("MeshPart") then
+            for _, l in pairs(Limbs) do
+                if part.Name == l then
+                    local adorn = Instance.new("BoxHandleAdornment")
+                    adorn.Size = part.Size
+                    adorn.Adornee = part
+                    local r = math.floor(GlowColor.R*255 * (1 + (GlowIntensity-1)*9/99))
+                    local g_val = math.floor(GlowColor.G*255 * (1 + (GlowIntensity-1)*9/99))
+                    local b = math.floor(GlowColor.B*255 * (1 + (GlowIntensity-1)*9/99))
+                    adorn.Color3 = Color3.fromRGB(r, g_val, b)
+                    adorn.ZIndex = 5
+                    adorn.AlwaysOnTop = false
+                    adorn.Visible = ChamsEnabled and GlowOn
+                    adorn.Parent = part
+                    table.insert(GlowParts, {Part=part, Ador=adorn})
+                    break
                 end
-                hideAll(part)
-
-                table.insert(GlowParts, {Part=part, Ador=adorn, OrigTransparency=0})
             end
         end
         for _, c in pairs(part:GetChildren()) do recurse(c) end
@@ -1852,10 +1970,13 @@ local function SetupGlowForCharacter(plr, char)
 end
 
 local function SetupChamsForCharacter(plr, char)
+    repeat task.wait() until char and char:FindFirstChild("HumanoidRootPart")
+
     if ChamData[plr] then
         local prev = ChamData[plr]
         if prev.Highlight then prev.Highlight:Destroy() end
         if prev.Box then for _, b in pairs(prev.Box) do b:Destroy() end end
+        if prev.Glow then for _, g in pairs(prev.Glow) do if g.Ador then g.Ador:Destroy() end end end
     end
 
     local h = Instance.new("Highlight")
@@ -1884,27 +2005,30 @@ local function SetupChamsForCharacter(plr, char)
         end
     end
 
-    local GlowParts = SetupGlowForCharacter(plr, char)
+    local GlowParts = SetupGlowForCharacter(char)
 
     ChamData[plr] = {Highlight=h, Box=Boxes, Glow=GlowParts}
     UpdateChamsForAll()
 end
 
-for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-    if plr ~= game.Players.LocalPlayer and plr.Character then
-        SetupChamsForCharacter(plr, plr.Character)
-    end
-end
-
-game:GetService("Players").PlayerAdded:Connect(function(plr)
-    if plr ~= game.Players.LocalPlayer then
-        plr.CharacterAdded:Connect(function(char)
-            SetupChamsForCharacter(plr, char)
-        end)
+local function ApplyChamsToPlayer(plr)
+    if plr ~= LocalPlayer then
         if plr.Character then
             SetupChamsForCharacter(plr, plr.Character)
         end
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(1)
+            SetupChamsForCharacter(plr, char)
+        end)
     end
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+    ApplyChamsToPlayer(plr)
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    ApplyChamsToPlayer(plr)
 end)
 
 
@@ -1937,16 +2061,34 @@ local function RestoreCharacterTransparency(char)
 end
 
 local function ApplyGlowChamsFixToPlayer(plr)
-    if plr.Character then
-        SetCharacterTransparency(plr.Character, 0.99)
+    local function applyFix(char)
+        task.spawn(function()
+            task.wait(0.05)
+            if GlowChamsFixEnabled then
+                SetCharacterTransparency(char, 0.99)
+            end
+        end)
     end
-    plr.CharacterAdded:Connect(function(char)
-        wait()
-        if GlowChamsFixEnabled then
-            SetCharacterTransparency(char, 0.99)
-        end
-    end)
+
+    if plr.Character then
+        applyFix(plr.Character)
+    end
+    plr.CharacterAdded:Connect(applyFix)
 end
+
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        ApplyGlowChamsFixToPlayer(plr)
+    end
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= LocalPlayer then
+        ApplyGlowChamsFixToPlayer(plr)
+    end
+end)
+
+
 
 local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
     Text = "Glowchams Fix",
@@ -1970,7 +2112,6 @@ local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
 end)
 registerFuncAuto(function()
 notifyl("logic","chams")
-
 
 local esp_screen=Instance.new("ScreenGui")
 esp_screen.Name="ESP_Screen"
@@ -2092,8 +2233,8 @@ local function create_esp(player)
  barGradient.Parent=bar
 
  local flag=Instance.new("TextLabel")
- flag.Size=UDim2.new(0,15,0, name_size-3)
- flag.Position=UDim2.new(0, -12,0,0)
+ flag.Size=UDim2.new(0,15,0,name_size-3)
+ flag.Position=UDim2.new(0,-2,0,0)
  flag.AnchorPoint=Vector2.new(1,0)
  flag.TextSize=name_size-3
  flag.TextColor3=hpTopColor
@@ -2108,7 +2249,96 @@ local function create_esp(player)
  flagStroke.Thickness=1
  flagStroke.Parent=flag
 
- esp_objects[player]={container=container,box=box,fill=stroke_fill,inline=stroke_inline,outline=stroke_outline,boxGradient=boxGradient,name=name,nameStroke=nameStroke,holder=holder,healthbar=healthbar,bar=bar,barGradient=barGradient,flag=flag,flagStroke=flagStroke}
+ local flagsContainer = Instance.new("Frame")
+ flagsContainer.BackgroundTransparency = 1
+ flagsContainer.AnchorPoint = Vector2.new(0,0)
+ flagsContainer.Position = UDim2.new(1,-2,0,0)
+ flagsContainer.Size = UDim2.new(0,50,0,name_size)
+ flagsContainer.ZIndex = 7
+ flagsContainer.Parent = container
+
+ local flagsLayout = Instance.new("UIListLayout")
+ flagsLayout.FillDirection = Enum.FillDirection.Vertical
+ flagsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+ flagsLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+ flagsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ flagsLayout.Parent = flagsContainer
+
+ local visibleFlag = Instance.new("TextLabel")
+ visibleFlag.Size = UDim2.new(1,0,0, name_size-3)
+ visibleFlag.BackgroundTransparency = 1
+ visibleFlag.FontFace = nametagFont
+ visibleFlag.TextSize = name_size-3
+ visibleFlag.TextColor3 = nameColor
+ visibleFlag.Text = "Visible"
+ visibleFlag.Visible = false
+ visibleFlag.ZIndex = 8
+ visibleFlag.Parent = flagsContainer
+
+ local visibleStroke = Instance.new("UIStroke")
+visibleStroke.Color = Color3.new(0,0,0)
+visibleStroke.Thickness = 1
+visibleStroke.Parent = visibleFlag
+
+local invisibleFlag = Instance.new("TextLabel")
+invisibleFlag.Size = UDim2.new(1,0,0, name_size-3)
+invisibleFlag.BackgroundTransparency = 1
+invisibleFlag.FontFace = nametagFont
+invisibleFlag.TextSize = name_size-3
+invisibleFlag.TextColor3 = nameColor
+invisibleFlag.Text = "Hidden"
+invisibleFlag.Visible = false
+invisibleFlag.ZIndex = 8
+invisibleFlag.Parent = flagsContainer
+
+local invisibleStroke = Instance.new("UIStroke")
+invisibleStroke.Color = Color3.new(0,0,0)
+invisibleStroke.Thickness = 1
+invisibleStroke.Parent = invisibleFlag
+
+local itemFlag = Instance.new("TextLabel")
+itemFlag.AnchorPoint = Vector2.new(0.5,0)
+itemFlag.Position = UDim2.new(0.5,0,1,4)
+itemFlag.Size = UDim2.new(1,20,0,name_size-2)
+itemFlag.BackgroundTransparency = 1
+itemFlag.TextSize = name_size-2
+itemFlag.FontFace = nametagFont
+itemFlag.TextColor3 = nameColor
+itemFlag.Text = ""
+itemFlag.Visible = false
+itemFlag.ZIndex = 6
+itemFlag.Parent = container
+
+local itemStroke = Instance.new("UIStroke")
+itemStroke.Color = Color3.new(0,0,0)
+itemStroke.Thickness = 1
+itemStroke.Parent = itemFlag
+
+esp_objects[player] = {
+    container = container,
+    box = box,
+    fill = stroke_fill,
+    inline = stroke_inline,
+    outline = stroke_outline,
+    boxGradient = boxGradient,
+
+    name = name,
+    nameStroke = nameStroke,
+
+    holder = holder,
+    healthbar = healthbar,
+    bar = bar,
+    barGradient = barGradient,
+    flag = flag,
+    flagStroke = flagStroke,
+
+    flagsContainer = flagsContainer,
+    visibleFlag = visibleFlag,
+    invisibleFlag = invisibleFlag,
+
+    itemFlag = itemFlag,
+    itemStroke = itemStroke
+}
 end
 
 local function remove_esp(player)
@@ -2122,69 +2352,142 @@ for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then create_esp(p) 
 Players.PlayerAdded:Connect(function(p) if p~=LocalPlayer then create_esp(p) end end)
 Players.PlayerRemoving:Connect(remove_esp)
 
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+rayParams.IgnoreWater = true
 
 RunService.RenderStepped:Connect(function()
-    local hue = tick()%5/5
+    local hue = tick() % 5 / 5
+    local camPos = Camera.CFrame.Position
+    local localChar = LocalPlayer.Character
+
     for player, esp in pairs(esp_objects) do
         local char = player.Character
         local hum = char and char:FindFirstChild("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not (hrp and hum) then
+        local head = char and char:FindFirstChild("Head")
+
+        if not (char and hum and hrp) then
             esp.container.Visible = false
             continue
         end
 
-        local top = hrp.Position + Vector3.new(0, STUDS_HEIGHT/2, 0)
-        local bottom = hrp.Position - Vector3.new(0, STUDS_HEIGHT/2, 0)
+        local top = hrp.Position + Vector3.new(0, STUDS_HEIGHT / 2, 0)
+        local bottom = hrp.Position - Vector3.new(0, STUDS_HEIGHT / 2, 0)
+
         local top2D, topVis = project(top)
         local bot2D, botVis = project(bottom)
+
         if not (topVis and botVis) then
             esp.container.Visible = false
             continue
         end
 
-        local height = bot2D.Y - top2D.Y
-        local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+        local dist = (camPos - hrp.Position).Magnitude
         local width = STUDS_WIDTH / dist * 100 * box_scale
+        local height = bot2D.Y - top2D.Y
 
         esp.container.Size = UDim2.new(0, width, 0, height)
-        esp.container.Position = UDim2.new(0, top2D.X - width/2, 0, top2D.Y)
+        esp.container.Position = UDim2.new(0, top2D.X - width / 2, 0, top2D.Y)
         esp.container.Visible = true
 
-        if rainbowBox then
-            esp.boxGradient.Color = ColorSequence.new(Color3.fromHSV(hue,1,1), Color3.fromHSV((hue+0.3)%1,1,1))
-        else
-            esp.boxGradient.Color = ColorSequence.new(boxTopColor, boxBotColor)
-        end
-        esp.fill.Transparency = 0
         esp.box.Visible = boxEspEnabled
+        esp.boxGradient.Color = rainbowBox
+            and ColorSequence.new(
+                Color3.fromHSV(hue, 1, 1),
+                Color3.fromHSV((hue + 0.3) % 1, 1, 1)
+            )
+            or ColorSequence.new(boxTopColor, boxBotColor)
 
-        esp.name.TextColor3 = rainbowName and Color3.fromHSV(hue,1,1) or nameColor
+        esp.name.Visible = nameEspEnabled
+        esp.name.Text = formatName(player.Name)
         esp.name.TextSize = name_size
         esp.name.FontFace = nametagFont
-        esp.name.Text = formatName(player.Name)
-        esp.name.Visible = nameEspEnabled
-        esp.nameStroke.Color = Color3.new(0,0,0)
+        esp.name.TextColor3 = rainbowName and Color3.fromHSV(hue, 1, 1) or nameColor
+
+        local desiredFont = nametagFont
+        local desiredColor = rainbowName and Color3.fromHSV(hue, 1, 1) or nameColor
+
+        if esp._lastFont ~= desiredFont then
+            esp._lastFont = desiredFont
+            esp.flag.FontFace = desiredFont
+            esp.itemFlag.FontFace = desiredFont
+            esp.visibleFlag.FontFace = desiredFont
+            esp.invisibleFlag.FontFace = desiredFont
+        end
+
+        if esp._lastColor ~= desiredColor then
+            esp._lastColor = desiredColor
+            esp.itemFlag.TextColor3 = desiredColor
+            esp.visibleFlag.TextColor3 = desiredColor
+            esp.invisibleFlag.TextColor3 = desiredColor
+        end
 
         local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+        esp.bar.Visible = hpBarEnabled
         esp.bar.Size = UDim2.new(1, 0, hpPercent, 0)
         esp.bar.Position = UDim2.new(0, 0, 1 - hpPercent, 0)
-        esp.bar.Visible = hpBarEnabled
-        esp.barGradient.Color = rainbowHP and ColorSequence.new(Color3.fromHSV(hue,1,1), Color3.fromHSV((hue+0.3)%1,1,1)) or ColorSequence.new(hpTopColor, hpBotColor)
+        esp.barGradient.Color = rainbowHP
+            and ColorSequence.new(
+                Color3.fromHSV(hue, 1, 1),
+                Color3.fromHSV((hue + 0.3) % 1, 1, 1)
+            )
+            or ColorSequence.new(hpTopColor, hpBotColor)
 
         esp.flag.Visible = hpFlagEnabled
         esp.flag.Text = tostring(math.floor(hum.Health))
         esp.flag.TextSize = name_size - 3
         esp.flag.TextColor3 = hpTopColor
+
         if hpFlagPosition == "Following" then
-            esp.flag.Position = UDim2.new(0, -12, 1 - hpPercent, 0)
-            esp.flag.AnchorPoint = Vector2.new(1, 0)
+            esp.flag.Position = UDim2.new(0, -2, 1 - hpPercent, 0)
         else
-            esp.flag.Position = UDim2.new(0, -12, 0, 0)
-            esp.flag.AnchorPoint = Vector2.new(1, 0)
+            esp.flag.Position = UDim2.new(0, -2, 0, 0)
+        end
+
+local holding = char:FindFirstChild("Holding")
+local equippedName = nil
+
+if holding and holding:IsA("ObjectValue") and holding.Value then
+    equippedName = holding.Value.Name
+end
+
+if itemFlagEnabled then
+    if esp._lastEquipped ~= equippedName then
+        esp._lastEquipped = equippedName
+        if equippedName then
+            esp.itemFlag.Text = equippedName
+            esp.itemFlag.Visible = true
+        else
+            esp.itemFlag.Visible = false
         end
     end
+else
+    esp.itemFlag.Visible = false
+end
+
+
+        esp.itemFlag.TextSize = name_size - 3
+
+        rayParams.FilterDescendantsInstances = { char, localChar }
+
+        local target = head or hrp
+        local direction = target.Position - camPos
+        local result = workspace:Raycast(camPos, direction, rayParams)
+
+        local isVisible
+        if result then
+            isVisible = result.Instance:IsDescendantOf(char)
+        else
+            isVisible = true
+        end
+
+        esp.visibleFlag.Visible = isVisible and visibleFlagEnabled
+        esp.invisibleFlag.Visible = (not isVisible) and invisibleFlagEnabled
+    end
 end)
+
+
 
 
 
