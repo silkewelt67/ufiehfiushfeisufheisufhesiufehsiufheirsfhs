@@ -1379,7 +1379,7 @@ speedState = {
 }
 local toggleObj = SpeedTab:AddToggle("speed_toggle", { Text = "Speedhack", Default = false })
 local keypickerLabel = toggleObj:AddKeyPicker("speed_keypicker", { Text = "Speedhack", Default = "None", Mode = "Toggle" })
-local sliderObj = SpeedTab:AddSlider("speed_value", { Text = "Speed Value", Default = 1, Min = 0, Max = 1.5, Rounding = 1 })
+local sliderObj = SpeedTab:AddSlider("speed_value", { Text = "Speed Value", Default = 1, Min = 0, Max = 1.5, Rounding = 2 })
 local dropdownObj = SpeedTab:AddDropdown("speed_type", { Text = "Speedhack Type", Values = { "Walkspeed", "CFrame", "TranslateBy" }, Default = 1 })
     
 
