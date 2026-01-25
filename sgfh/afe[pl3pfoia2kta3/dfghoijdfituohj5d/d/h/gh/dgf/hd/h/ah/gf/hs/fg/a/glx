@@ -958,87 +958,225 @@ local ModWorldBox = World:AddLeftGroupbox("Modifications")
 local Lighting = game:GetService("Lighting")
 local Atmosphere = Lighting.Atmosphere
 
-Toggles.OverrideAmbient = ModWorldBox:AddToggle('OverrideAmbient', { Text = 'Override Ambient', Default = false })
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+
+local world_state = {
+    ambient_enabled = false,
+    ambient = Lighting.Ambient,
+
+    outdoor_enabled = false,
+    outdoor = Lighting.OutdoorAmbient,
+
+    fog_enabled = false,
+    fog_color = Atmosphere.Color,
+    fog_density = Atmosphere.Density,
+    fog_offset = Atmosphere.Offset,
+
+    brightness_enabled = false,
+    brightness = Lighting.Brightness,
+
+    shadows_enabled = false,
+    shadow_softness = Lighting.ShadowSoftness,
+
+    cstop_enabled = false,
+    cstop = Lighting.ColorShift_Top,
+
+    csbot_enabled = false,
+    csbot = Lighting.ColorShift_Bottom,
+
+    clock_enabled = false,
+    clock = Lighting.ClockTime
+}
+
+Toggles.OverrideAmbient = ModWorldBox:AddToggle('OverrideAmbient', {
+    Text = 'Override Ambient',
+    Default = false,
+    Callback = function(v)
+        world_state.ambient_enabled = v
+    end
+})
+
 ModWorldBox:AddLabel('Ambient Color'):AddColorPicker('AmbientCP', {
-    Default = Color3.fromRGB(255,255,255),
-    Callback = function(Value)
-        if Toggles.OverrideAmbient.Value then
-            Lighting.Ambient = Value
-        end
+    Default = world_state.ambient,
+    Callback = function(v)
+        world_state.ambient = v
     end
 })
 
-Toggles.OverrideOutdoor = ModWorldBox:AddToggle('OverrideOutdoor', { Text = 'Override OutdoorAmbient', Default = false })
+Toggles.OverrideOutdoor = ModWorldBox:AddToggle('OverrideOutdoor', {
+    Text = 'Override OutdoorAmbient',
+    Default = false,
+    Callback = function(v)
+        world_state.outdoor_enabled = v
+    end
+})
+
 ModWorldBox:AddLabel('OutdoorAmbient Color'):AddColorPicker('OutdoorCP', {
-    Default = Color3.fromRGB(255,255,255),
-    Callback = function(Value)
-        if Toggles.OverrideOutdoor.Value then
-            Lighting.OutdoorAmbient = Value
-        end
+    Default = world_state.outdoor,
+    Callback = function(v)
+        world_state.outdoor = v
     end
 })
 
-Toggles.OverrideFog = ModWorldBox:AddToggle('OverrideFog', { Text = 'Override Fog', Default = false })
+Toggles.OverrideFog = ModWorldBox:AddToggle('OverrideFog', {
+    Text = 'Override Fog',
+    Default = false,
+    Callback = function(v)
+        world_state.fog_enabled = v
+    end
+})
+
 ModWorldBox:AddLabel('Fog Color'):AddColorPicker('FogCP', {
-    Default = Color3.fromRGB(200,200,200),
-    Callback = function(Value)
-        if Toggles.OverrideFog.Value then
-            Atmosphere.Color = Value
-        end
+    Default = world_state.fog_color,
+    Callback = function(v)
+        world_state.fog_color = v
     end
 })
-ModWorldBox:AddSlider('FogDensity', { Text = 'Fog Density', Min = 0, Max = 1, Default = Atmosphere.Density, Rounding = 5, Callback = function(Value)
-    if Toggles.OverrideFog.Value then
-        Atmosphere.Density = Value
-    end
-end})
-ModWorldBox:AddSlider('FogOffset', { Text = 'Fog Offset', Min = 0, Max = 25, Default = 0, Callback = function(Value)
-    if Toggles.OverrideFog.Value then
-        Atmosphere.Offset = Value
-    end
-end})
 
-Toggles.OverrideBrightness = ModWorldBox:AddToggle('OverrideBrightness', { Text = 'Override Brightness', Default = false })
-ModWorldBox:AddSlider('BrightnessSlider', { Text = 'Brightness', Min = 0, Max = 10, Default = Lighting.Brightness, Callback = function(Value)
-    if Toggles.OverrideBrightness.Value then
-        Lighting.Brightness = Value
+ModWorldBox:AddSlider('FogDensity', {
+    Text = 'Fog Density',
+    Min = 0,
+    Max = 1,
+    Default = world_state.fog_density,
+    Rounding = 5,
+    Callback = function(v)
+        world_state.fog_density = v
     end
-end})
+})
 
-Toggles.OverrideGlobalShadows = ModWorldBox:AddToggle('OverrideGlobalShadows', { Text = 'Override GlobalShadows', Default = false })
-ModWorldBox:AddSlider('ShadowSoftness', { Text = 'Shadow Softness', Min = 0, Max = 1, Default = Lighting.ShadowSoftness, Callback = function(Value)
-    if Toggles.OverrideGlobalShadows.Value then
-        Lighting.GlobalShadows = true
-        Lighting.ShadowSoftness = Value
+ModWorldBox:AddSlider('FogOffset', {
+    Text = 'Fog Offset',
+    Min = 0,
+    Max = 25,
+    Default = world_state.fog_offset,
+    Callback = function(v)
+        world_state.fog_offset = v
     end
-end})
+})
 
-Toggles.OverrideColorShiftTop = ModWorldBox:AddToggle('OverrideColorShiftTop', { Text = 'Override ColorShift Top', Default = false })
+Toggles.OverrideBrightness = ModWorldBox:AddToggle('OverrideBrightness', {
+    Text = 'Override Brightness',
+    Default = false,
+    Callback = function(v)
+        world_state.brightness_enabled = v
+    end
+})
+
+ModWorldBox:AddSlider('BrightnessSlider', {
+    Text = 'Brightness',
+    Min = 0,
+    Max = 10,
+    Default = world_state.brightness,
+    Callback = function(v)
+        world_state.brightness = v
+    end
+})
+
+Toggles.OverrideGlobalShadows = ModWorldBox:AddToggle('OverrideGlobalShadows', {
+    Text = 'Override GlobalShadows',
+    Default = false,
+    Callback = function(v)
+        world_state.shadows_enabled = v
+    end
+})
+
+ModWorldBox:AddSlider('ShadowSoftness', {
+    Text = 'Shadow Softness',
+    Min = 0,
+    Max = 1,
+    Default = world_state.shadow_softness,
+    Callback = function(v)
+        world_state.shadow_softness = v
+    end
+})
+
+Toggles.OverrideColorShiftTop = ModWorldBox:AddToggle('OverrideColorShiftTop', {
+    Text = 'Override ColorShift Top',
+    Default = false,
+    Callback = function(v)
+        world_state.cstop_enabled = v
+    end
+})
+
 ModWorldBox:AddLabel('ColorShift Top'):AddColorPicker('CSTopCP', {
-    Default = Color3.fromRGB(255,255,255),
-    Callback = function(Value)
-        if Toggles.OverrideColorShiftTop.Value then
-            Lighting.ColorShift_Top = Value
-        end
+    Default = world_state.cstop,
+    Callback = function(v)
+        world_state.cstop = v
     end
 })
 
-Toggles.OverrideColorShiftBottom = ModWorldBox:AddToggle('OverrideColorShiftBottom', { Text = 'Override ColorShift Bottom', Default = false })
+Toggles.OverrideColorShiftBottom = ModWorldBox:AddToggle('OverrideColorShiftBottom', {
+    Text = 'Override ColorShift Bottom',
+    Default = false,
+    Callback = function(v)
+        world_state.csbot_enabled = v
+    end
+})
+
 ModWorldBox:AddLabel('ColorShift Bottom'):AddColorPicker('CSBotCP', {
-    Default = Color3.fromRGB(255,255,255),
-    Callback = function(Value)
-        if Toggles.OverrideColorShiftBottom.Value then
-            Lighting.ColorShift_Bottom = Value
-        end
+    Default = world_state.csbot,
+    Callback = function(v)
+        world_state.csbot = v
     end
 })
 
-Toggles.OverrideClockTime = ModWorldBox:AddToggle('OverrideClockTime', { Text = 'Override ClockTime', Default = false })
-ModWorldBox:AddSlider('ClockTime', { Text = 'Clock Time', Min = 0, Max = 24, Default = Lighting.ClockTime, Callback = function(Value)
-    if Toggles.OverrideClockTime.Value then
-        Lighting.ClockTime = Value
+Toggles.OverrideClockTime = ModWorldBox:AddToggle('OverrideClockTime', {
+    Text = 'Override ClockTime',
+    Default = false,
+    Callback = function(v)
+        world_state.clock_enabled = v
     end
-end})
+})
+
+ModWorldBox:AddSlider('ClockTime', {
+    Text = 'Clock Time',
+    Min = 0,
+    Max = 24,
+    Default = world_state.clock,
+    Callback = function(v)
+        world_state.clock = v
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if world_state.ambient_enabled then
+        Lighting.Ambient = world_state.ambient
+    end
+
+    if world_state.outdoor_enabled then
+        Lighting.OutdoorAmbient = world_state.outdoor
+    end
+
+    if world_state.fog_enabled and Atmosphere then
+        Atmosphere.Color = world_state.fog_color
+        Atmosphere.Density = world_state.fog_density
+        Atmosphere.Offset = world_state.fog_offset
+    end
+
+    if world_state.brightness_enabled then
+        Lighting.Brightness = world_state.brightness
+    end
+
+    if world_state.shadows_enabled then
+        Lighting.GlobalShadows = true
+        Lighting.ShadowSoftness = world_state.shadow_softness
+    end
+
+    if world_state.cstop_enabled then
+        Lighting.ColorShift_Top = world_state.cstop
+    end
+
+    if world_state.csbot_enabled then
+        Lighting.ColorShift_Bottom = world_state.csbot
+    end
+
+    if world_state.clock_enabled then
+        Lighting.ClockTime = world_state.clock
+    end
+end)
+
 
 
 local VisWorldBox = World:AddRightGroupbox("Visibility")
