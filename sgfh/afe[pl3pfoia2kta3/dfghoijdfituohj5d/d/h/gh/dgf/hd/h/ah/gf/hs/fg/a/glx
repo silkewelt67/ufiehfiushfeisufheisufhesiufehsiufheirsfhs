@@ -1856,22 +1856,24 @@ pcall(function()
                     )
 
                     if silent_aim.instant then
-                        local targetPart = silent_aim.target_part
-        if targetPart then
-            local itemRoot = getItemRoot()
-            if itemRoot then
-                itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPart.Position)
-                local shotId = math.random(-10000, 10000)
-                
-                FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, tick())
-                ProjectileInflict:FireServer(
-                    targetPart,
-                    targetPart.CFrame:ToObjectSpace(CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))),
-                    shotId,
-                    0/0
-                )
-            end
-        end
+local targetPart = silent_aim.target_part
+if targetPart then
+    local itemRoot = getItemRoot()
+    if itemRoot then
+        itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPart.Position)
+        local shotId = math.random(-10000, 10000)
+
+        FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, tick())
+        ProjectileInflict:FireServer(
+            targetPart,
+            targetPart.CFrame:ToObjectSpace(
+                CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))
+            ),
+            shotId,
+            0/0
+        )
+    end
+end
                     end
                 else
                     silent_aim.target_part = nil
