@@ -1758,97 +1758,130 @@ end
 
 local TweenService = game:GetService("TweenService")
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CurrentCamera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local FireProjectile = Remotes:WaitForChild("FireProjectile")
+local ProjectileInflict = Remotes:WaitForChild("ProjectileInflict")
+
+local function getItemRoot()
+    local vm = workspace.Camera:FindFirstChild("ViewModel")
+    if not vm then return nil end
+    local item = vm:FindFirstChild("Item")
+    if not item then return nil end
+    return item.PrimaryPart
+end
+
+
 pcall(function()
-    local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local CurrentCamera = workspace.CurrentCamera
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local CurrentCamera = workspace.CurrentCamera
 
-    local BulletModule = require(ReplicatedStorage.Modules.FPS.Bullet)
-    local OriginalCreateBullet = BulletModule.CreateBullet
+        local BulletModule = require(ReplicatedStorage.Modules.FPS.Bullet)
+        local OriginalCreateBullet = BulletModule.CreateBullet
 
-    local function resolveTarget()
-        if not plr_target or plr_target == "" then return nil end
+        local function resolveTarget()
+            if not plr_target or plr_target == "" then return nil end
 
-        local plr = Players:FindFirstChild(plr_target)
-        if plr and plr.Character then
-            return plr.Character:FindFirstChild("Head")
+            local plr = Players:FindFirstChild(plr_target)
+            if plr and plr.Character then
+                return plr.Character:FindFirstChild("Head")
+            end
+
+            local cur = workspace
+            for seg in string.gmatch(plr_target, "[^/]+") do
+                cur = cur and cur:FindFirstChild(seg)
+                if not cur then return nil end
+            end
+
+            return cur:IsA("BasePart") and cur or nil
         end
 
-        local cur = workspace
-        for seg in string.gmatch(plr_target, "[^/]+") do
-            cur = cur and cur:FindFirstChild(seg)
-            if not cur then return nil end
+        local function predictVelocity(origin, destination, velocity, speed)
+            local displacement = destination - origin
+            local a = velocity:Dot(velocity) - speed * speed
+            local b = 2 * displacement:Dot(velocity)
+            local c = displacement:Dot(displacement)
+
+            local disc = b*b - 4*a*c
+            if disc < 0 then return destination end
+
+            local t0 = (-b - math.sqrt(disc)) / (2*a)
+            local t1 = (-b + math.sqrt(disc)) / (2*a)
+            local t = math.max(t0, t1)
+            if t < 0 then t = math.min(t0, t1) end
+            if t < 0 then t = 0 end
+
+            return destination + velocity * t
         end
 
-        return cur:IsA("BasePart") and cur or nil
-    end
+        BulletModule.CreateBullet = newcclosure(function(...)
+            local args = {...}
 
-    local function predictVelocity(origin, destination, velocity, speed)
-        local displacement = destination - origin
-        local a = velocity:Dot(velocity) - speed * speed
-        local b = 2 * displacement:Dot(velocity)
-        local c = displacement:Dot(displacement)
+            if silent_aim.enabled and plr_target then
+                local head = resolveTarget()
+                if head then
+                    silent_aim.target_part = head
 
-        local disc = b*b - 4*a*c
-        if disc < 0 then return destination end
-
-        local t0 = (-b - math.sqrt(disc)) / (2*a)
-        local t1 = (-b + math.sqrt(disc)) / (2*a)
-        local t = math.max(t0, t1)
-        if t < 0 then t = math.min(t0, t1) end
-        if t < 0 then t = 0 end
-
-        return destination + velocity * t
-    end
-
-    BulletModule.CreateBullet = newcclosure(function(...)
-        local args = {...}
-
-        if silent_aim.enabled and plr_target then
-            local head = resolveTarget()
-            if head then
-                silent_aim.target_part = head
-
-                local loadedammo
-                pcall(function()
-                    local weapon = get_local_weapon()
-                    local inv = LocalPlayer and LocalPlayer.Backpack:FindFirstChild(weapon)
-                    if inv then
-                        local mag = inv:FindFirstChild("Attachments") and inv.Attachments:FindFirstChild("Magazine")
-                        if mag then
-                            loadedammo =
-                                mag.ItemProperties
-                                and mag.ItemProperties:FindFirstChild("LoadedAmmo")
-                                and mag.ItemProperties.LoadedAmmo:FindFirstChildOfClass("Folder")
+                    local loadedammo
+                    pcall(function()
+                        local weapon = get_local_weapon()
+                        local inv = LocalPlayer and LocalPlayer.Backpack:FindFirstChild(weapon)
+                        if inv then
+                            local mag = inv:FindFirstChild("Attachments") and inv.Attachments:FindFirstChild("Magazine")
+                            if mag then
+                                loadedammo =
+                                    mag.ItemProperties
+                                    and mag.ItemProperties:FindFirstChild("LoadedAmmo")
+                                    and mag.ItemProperties.LoadedAmmo:FindFirstChildOfClass("Folder")
+                            end
                         end
-                    end
-                end)
+                    end)
 
-                local speed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
-                if type(args[5]) ~= "table" then args[5] = {} end
+                    local speed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
+                    if type(args[5]) ~= "table" then args[5] = {} end
 
-                args[5].CFrame = CFrame.new(
-                    CurrentCamera.CFrame.Position,
-                    predictVelocity(
+                    args[5].CFrame = CFrame.new(
                         CurrentCamera.CFrame.Position,
-                        head.Position,
-                        head.Velocity,
-                        speed
+                        predictVelocity(
+                            CurrentCamera.CFrame.Position,
+                            head.Position,
+                            head.Velocity,
+                            speed
+                        )
                     )
-                )
 
-                if silent_aim.tracer then
-                    createBeam(CurrentCamera.CFrame.Position, head.Position, tracerColor, 2, 0.5)
+                    if silent_aim.instant then
+                        local targetPart = silent_aim.target_part
+        if targetPart then
+            local itemRoot = getItemRoot()
+            if itemRoot then
+                itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPart.Position)
+                local shotId = math.random(-10000, 10000)
+                
+                FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, tick())
+                ProjectileInflict:FireServer(
+                    targetPart,
+                    targetPart.CFrame:ToObjectSpace(CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))),
+                    shotId,
+                    0/0
+                )
+            end
+        end
+                    end
+                else
+                    silent_aim.target_part = nil
                 end
             else
                 silent_aim.target_part = nil
             end
-        else
-            silent_aim.target_part = nil
-        end
 
-        return OriginalCreateBullet(table.unpack(args))
-    end)
+            return OriginalCreateBullet(table.unpack(args))
+        end)
 end)
 
 
@@ -2522,13 +2555,14 @@ local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
                     if plr.Character then
                         RestoreCharacterTransparency(plr.Character)
                     end 
+                end
             end
         end
     end
 })
 
 
-end)
+end)    
 registerFuncAuto(function()
 notifyl("logic","esp")
 
