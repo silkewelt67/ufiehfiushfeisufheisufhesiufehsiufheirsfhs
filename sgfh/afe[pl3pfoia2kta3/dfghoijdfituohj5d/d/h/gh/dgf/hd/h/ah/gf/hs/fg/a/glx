@@ -1242,7 +1242,7 @@ local HRP = Character:WaitForChild("HumanoidRootPart")
 local spoofing = false
 local offsetX, offsetY, offsetZ = 0, 0, 0
 
-local Toggle = AntiAimTab:AddToggle("HRPSpoof", { Text = "Spoofer", Tooltip = "Changes your position without replicating to your client. Y values too high/low can get you kicked and attempting to go through walls may also get you kicked.", Default = false })
+local Toggle = AntiAimTab:AddToggle("HRPSpoof", { Text = "Spoofer", Tooltip = "Changes your position without replicating to your client.\nY values too high/low can get you kicked and attempting to go through walls may also get you kicked.", Default = false })
 
 local XPosSlider = AntiAimTab:AddSlider("SpoofX", { Text = "X Offset", Min = -10, Max = 10, Default = 0, Rounding = 2, Callback = function(v) offsetX = v end })
 local YPosSlider = AntiAimTab:AddSlider("SpoofY", { Text = "Y Offset", Min = -4, Max = 7, Default = 0, Rounding = 2, Callback = function(v) offsetY = v end })
