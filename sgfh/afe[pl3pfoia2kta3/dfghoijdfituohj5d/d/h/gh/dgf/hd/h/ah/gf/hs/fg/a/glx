@@ -165,6 +165,8 @@ end)
 targeting_flags = {
     enabled = false,
     mitarget = false,
+    bandit_target = false,
+    boss_target = false,
     fov_radius = 200,
     gradient_rot = 0,
     col_a = Color3.fromRGB(255,255,255),
@@ -277,13 +279,35 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    if targeting_flags.bandit_target or targeting_flags.boss_target then
+        local aiZones = workspace:FindFirstChild("AiZones")
+        if aiZones then
+            for _, zone in ipairs(aiZones:GetChildren()) do
+                for _, model in ipairs(zone:GetChildren()) do
+                    local hrp = model:FindFirstChild("HumanoidRootPart")
+                    local hum = model:FindFirstChild("Humanoid")
+                    if hrp and hum and hum.Health > 0 then
+                        local nameLower = model.Name:lower()
+                        local isBandit = nameLower:find("bandit")
+                        local targetThis = (isBandit and targeting_flags.bandit_target) or (not isBandit and targeting_flags.boss_target)
+                        if targetThis then
+                            local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+                            if onscreen then
+                                local dist = (Vector2.new(pos.X,pos.Y) - Vector2.new(Mouse.X,Mouse.Y)).Magnitude
+                                if dist < shortest then
+                                    shortest = dist
+                                    closest = model.Name
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     plr_target = closest
 end)
-
-
-
-
-
 
 local TargetLabel = Library:AddDraggableLabel("target = nil")
 
@@ -494,8 +518,23 @@ CombatTab:AddToggle('EnableMI', {
     Text = 'Target MI24V',
     Default = targeting_flags.mitarget,
     Callback = function(v)
-        targeting_flags.enabled = v
-        fov.Visible = v
+        targeting_flags.mitarget = v
+    end
+})
+
+CombatTab:AddToggle('EnableMI', {
+    Text = 'Target Bandits',
+    Default = targeting_flags.bandit_target,
+    Callback = function(v)
+        targeting_flags.bandit_target = v
+    end
+})
+
+CombatTab:AddToggle('EnableMI', {
+    Text = 'Target Bosses',
+    Default = targeting_flags.boss_target,
+    Callback = function(v)
+        targeting_flags.boss_target = v
     end
 })
 
@@ -1553,7 +1592,7 @@ zoomToggle:AddKeyPicker("ZoomKey", {Text = "Zoom", Default = "None", Mode = "Tog
 local zoomSlider = CamTab:AddSlider("ZoomFOV", {Text = "Zoom FOV Value", Default = 10, Min = 1, Max = 70, Rounding = 1})
 
 local scrollToggle = CamTab:AddToggle("ScrollFOV", {Text = "Scroll FOV", Default = false})
-local scrollAmount = 5 -- nts replace this with a slider 🌹
+local scrollAmount = 5
 
 local Camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
@@ -2482,8 +2521,7 @@ local GlowChamsFixToggle = SubChamsPersonal:AddToggle("GlowChamsFix", {
                 else
                     if plr.Character then
                         RestoreCharacterTransparency(plr.Character)
-                    end
-                end
+                    end 
             end
         end
     end
