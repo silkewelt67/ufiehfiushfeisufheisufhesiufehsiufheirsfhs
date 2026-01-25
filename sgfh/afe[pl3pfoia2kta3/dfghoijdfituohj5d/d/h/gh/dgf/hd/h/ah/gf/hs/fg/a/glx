@@ -26,6 +26,7 @@ files.import("logo.png", "images", "https://raw.githubusercontent.com/petal-cymk
 files.import("visual.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(3)%20(1)%20(1).png")
 files.import("combat.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/maio%20%F0%9F%90%B1%20(1).png")
 files.import("player.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(4)%20(1)%20(1).png")
+files.import("world.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(5)%20(1).png")
 
 print('break \n')
 print('\n')
@@ -33,7 +34,7 @@ print('\n')
 print('\n')
 repo='https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/'
 
-Library=loadstring(game:HttpGet(repo..'Library.lua'))()
+Library=loadstring(game:HttpGet('https://hasteb.in/qISFXC2fyZD0cAz'))()
 ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
 SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
 Options = Library.Options
@@ -246,10 +247,10 @@ RunService.RenderStepped:Connect(function()
             if head and hum and hum.Health > 0 then
                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
                 if onscreen then
-                    local dist = (Vector2.new(pos.X,pos.Y)-Vector2.new(Mouse.X,Mouse.Y)).Magnitude
+                    local dist = (Vector2.new(pos.X,pos.Y) - Vector2.new(Mouse.X,Mouse.Y)).Magnitude
                     if dist < shortest then
                         shortest = dist
-                        closest = head
+                        closest = plr.Name
                     end
                 end
             end
@@ -257,19 +258,20 @@ RunService.RenderStepped:Connect(function()
     end
 
     if targeting_flags.mitarget then
-        local mi24part = workspace:FindFirstChild("AiZones")
-                        and workspace.AiZones:FindFirstChild("HeliAirfield")
-                        and workspace.AiZones.HeliAirfield:FindFirstChild("MI24V")
-                        and workspace.AiZones.HeliAirfield.MI24V:FindFirstChild("Pilots")
-                        and workspace.AiZones.HeliAirfield.MI24V.Pilots:FindFirstChild("CollisionPilot")
+        local mi24 =
+            workspace:FindFirstChild("AiZones")
+            and workspace.AiZones:FindFirstChild("HeliAirfield")
+            and workspace.AiZones.HeliAirfield:FindFirstChild("MI24V")
+            and workspace.AiZones.HeliAirfield.MI24V:FindFirstChild("Pilots")
+            and workspace.AiZones.HeliAirfield.MI24V.Pilots:FindFirstChild("CollisionPilot")
 
-        if mi24part then
-            local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(mi24part.Position)
+        if mi24 then
+            local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(mi24.Position)
             if onscreen then
-                local dist = (Vector2.new(pos.X,pos.Y)-Vector2.new(Mouse.X,Mouse.Y)).Magnitude
+                local dist = (Vector2.new(pos.X,pos.Y) - Vector2.new(Mouse.X,Mouse.Y)).Magnitude
                 if dist < shortest then
                     shortest = dist
-                    closest = mi24part
+                    closest = "AiZones/HeliAirfield/MI24V/Pilots/CollisionPilot"
                 end
             end
         end
@@ -592,7 +594,7 @@ GunMods:AddLabel("Forcehit Key"):AddKeyPicker("ForceHitBind", {
     Default = "None",
     SyncToggleState = false,
     Mode = "Hold",
-    Text = "forcehit",
+    Text = "Forcehit",
     Tooltip = "RISKY \nHold this key to instantly hit your target, shoots its own bullet and instantly calls inflict."
 })
 
@@ -600,44 +602,28 @@ local ForceHitBindObj = Options.ForceHitBind
 
 RS = game:GetService("RunService")
 ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local FireProjectile = Remotes:WaitForChild("FireProjectile")
 local ProjectileInflict = Remotes:WaitForChild("ProjectileInflict")
 
-local Camera = workspace.CurrentCamera
-local ClansFolder = ReplicatedStorage:WaitForChild("Clans")
+local function getTargetPart()
+    if not plr_target or plr_target == "" then return nil end
 
-local function getTeammates()
-    if not env.TeamCheckEnabled then return {} end
-    local teammates = {}
-    for _, clan in pairs(ClansFolder:GetChildren()) do
-        if clan:IsA("Folder") then
-            local owner = clan:GetAttribute("Owner")
-            if owner then
-                if owner == LocalPlayer.Name then
-                    for _, child in pairs(clan:GetChildren()) do
-                        teammates[child.Name] = true
-                    end
-                else
-                    for _, child in pairs(clan:GetChildren()) do
-                        if child:IsA("Folder") and child.Name == LocalPlayer.Name then
-                            teammates[owner] = true
-                            for _, c in pairs(clan:GetChildren()) do
-                                teammates[c.Name] = true
-                            end
-                            break
-                        end
-                    end
-                end
-            end
-        end
+    -- player
+    local plr = Players:FindFirstChild(plr_target)
+    if plr and plr.Character then
+        return plr.Character:FindFirstChild("Head")
     end
-    return teammates
-end
 
-local function getTargetPosition()
-    if not plr_target then return nil end
-    return plr_target.Position
+    -- ai path
+    local cur = workspace
+    for seg in string.gmatch(plr_target, "[^/]+") do
+        cur = cur and cur:FindFirstChild(seg)
+        if not cur then return nil end
+    end
+
+    return cur:IsA("BasePart") and cur or nil
 end
 
 local function getItemRoot()
@@ -645,27 +631,37 @@ local function getItemRoot()
     if not vm then return nil end
     local item = vm:FindFirstChild("Item")
     if not item then return nil end
-    return item.PrimaryPart, item
+    return item.PrimaryPart
 end
 
 local lastShot = 0
+
 RS.RenderStepped:Connect(function()
     if not ForceHitBindObj:GetState() then return end
+
     local now = tick()
     if now - lastShot < env.RapidFireDelay then return end
     lastShot = now
 
-    local targetPos = getTargetPosition()
-    if not targetPos then return end
+    local targetPart = getTargetPart()
+    if not targetPart then return end
 
-    local itemRoot, itemModel = getItemRoot()
+    local itemRoot = getItemRoot()
     if not itemRoot then return end
 
-    itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPos)
+    itemRoot.CFrame = CFrame.lookAt(itemRoot.Position, targetPart.Position)
     local shotId = math.random(-10000, 10000)
 
-    FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, lastShot)
-    ProjectileInflict:FireServer(plr_target, CFrame.new(targetPos), shotId, 0/0)
+    FireProjectile:InvokeServer(Vector3.new(0/0,0/0,0/0), shotId, now)
+
+    ProjectileInflict:FireServer(
+        targetPart,
+        targetPart.CFrame:ToObjectSpace(
+            CFrame.new(targetPart.Position + Vector3.new(0,0.01,0))
+        ),
+        shotId,
+        0/0
+    )
 end)
 
 
@@ -912,6 +908,145 @@ getgenv().silent_aim = {
     target_part = nil
 }
 
+
+local worl = files.gca("world.png", "images")
+local World = Window:AddTab("World", worl)
+
+local ModWorldBox = World:AddLeftGroupbox("Modifications")
+local Lighting = game:GetService("Lighting")
+local Atmosphere = Lighting.Atmosphere
+
+Toggles.OverrideAmbient = ModWorldBox:AddToggle('OverrideAmbient', { Text = 'Override Ambient', Default = false })
+ModWorldBox:AddLabel('Ambient Color'):AddColorPicker('AmbientCP', {
+    Default = Color3.fromRGB(255,255,255),
+    Callback = function(Value)
+        if Toggles.OverrideAmbient.Value then
+            Lighting.Ambient = Value
+        end
+    end
+})
+
+Toggles.OverrideOutdoor = ModWorldBox:AddToggle('OverrideOutdoor', { Text = 'Override OutdoorAmbient', Default = false })
+ModWorldBox:AddLabel('OutdoorAmbient Color'):AddColorPicker('OutdoorCP', {
+    Default = Color3.fromRGB(255,255,255),
+    Callback = function(Value)
+        if Toggles.OverrideOutdoor.Value then
+            Lighting.OutdoorAmbient = Value
+        end
+    end
+})
+
+Toggles.OverrideFog = ModWorldBox:AddToggle('OverrideFog', { Text = 'Override Fog', Default = false })
+ModWorldBox:AddLabel('Fog Color'):AddColorPicker('FogCP', {
+    Default = Color3.fromRGB(200,200,200),
+    Callback = function(Value)
+        if Toggles.OverrideFog.Value then
+            Atmosphere.Color = Value
+        end
+    end
+})
+ModWorldBox:AddSlider('FogDensity', { Text = 'Fog Density', Min = 0, Max = 1, Default = Atmosphere.Density, Rounding = 5, Callback = function(Value)
+    if Toggles.OverrideFog.Value then
+        Atmosphere.Density = Value
+    end
+end})
+ModWorldBox:AddSlider('FogOffset', { Text = 'Fog Offset', Min = 0, Max = 25, Default = 0, Callback = function(Value)
+    if Toggles.OverrideFog.Value then
+        Atmosphere.Offset = Value
+    end
+end})
+
+Toggles.OverrideBrightness = ModWorldBox:AddToggle('OverrideBrightness', { Text = 'Override Brightness', Default = false })
+ModWorldBox:AddSlider('BrightnessSlider', { Text = 'Brightness', Min = 0, Max = 10, Default = Lighting.Brightness, Callback = function(Value)
+    if Toggles.OverrideBrightness.Value then
+        Lighting.Brightness = Value
+    end
+end})
+
+Toggles.OverrideGlobalShadows = ModWorldBox:AddToggle('OverrideGlobalShadows', { Text = 'Override GlobalShadows', Default = false })
+ModWorldBox:AddSlider('ShadowSoftness', { Text = 'Shadow Softness', Min = 0, Max = 1, Default = Lighting.ShadowSoftness, Callback = function(Value)
+    if Toggles.OverrideGlobalShadows.Value then
+        Lighting.GlobalShadows = true
+        Lighting.ShadowSoftness = Value
+    end
+end})
+
+Toggles.OverrideColorShiftTop = ModWorldBox:AddToggle('OverrideColorShiftTop', { Text = 'Override ColorShift Top', Default = false })
+ModWorldBox:AddLabel('ColorShift Top'):AddColorPicker('CSTopCP', {
+    Default = Color3.fromRGB(255,255,255),
+    Callback = function(Value)
+        if Toggles.OverrideColorShiftTop.Value then
+            Lighting.ColorShift_Top = Value
+        end
+    end
+})
+
+Toggles.OverrideColorShiftBottom = ModWorldBox:AddToggle('OverrideColorShiftBottom', { Text = 'Override ColorShift Bottom', Default = false })
+ModWorldBox:AddLabel('ColorShift Bottom'):AddColorPicker('CSBotCP', {
+    Default = Color3.fromRGB(255,255,255),
+    Callback = function(Value)
+        if Toggles.OverrideColorShiftBottom.Value then
+            Lighting.ColorShift_Bottom = Value
+        end
+    end
+})
+
+Toggles.OverrideClockTime = ModWorldBox:AddToggle('OverrideClockTime', { Text = 'Override ClockTime', Default = false })
+ModWorldBox:AddSlider('ClockTime', { Text = 'Clock Time', Min = 0, Max = 24, Default = Lighting.ClockTime, Callback = function(Value)
+    if Toggles.OverrideClockTime.Value then
+        Lighting.ClockTime = Value
+    end
+end})
+
+
+local VisWorldBox = World:AddRightGroupbox("Visibility")
+
+
+local FoliageSurfacePartsToggle = VisWorldBox:AddToggle('FoliageSurfaceParts', {
+    Text = 'No Foliage',
+    Default = false,
+    Tooltip = 'Removes shit so u can see',
+
+    Callback = function(Value)
+        local Foliage = workspace:WaitForChild("SpawnerZones"):WaitForChild("Foliage")
+        local Stored = getgenv()._StoredFoliage or {}
+        getgenv()._StoredFoliage = Stored
+
+        local function hasSurfaceAppearance(part)
+            for _, desc in ipairs(part:GetDescendants()) do
+                if desc:IsA("SurfaceAppearance") then
+                    return true
+                end
+            end
+            return false
+        end
+
+        if Value then
+            table.clear(Stored)
+            for _, v in ipairs(Foliage:GetDescendants()) do
+                if v:IsA("BasePart") and hasSurfaceAppearance(v) then
+                    Stored[#Stored+1] = {v, v.Parent}
+                    v.Parent = nil
+                end
+            end
+        else
+            for _, data in ipairs(Stored) do
+                local part, parent = data[1], data[2]
+                if part and parent then
+                    part.Parent = parent
+                end
+            end
+            table.clear(Stored)
+        end
+    end
+})
+
+
+
+
+
+
+
 local LeftGroupBox = Combat:AddRightGroupbox("Silent Aim")
 
 LeftGroupBox:AddToggle("SilentAimEnabled", {
@@ -1095,6 +1230,144 @@ end)
 
 local playerl = files.gca("player.png", "images")
 Plr = Window:AddTab('Player', playerl)
+
+
+local AntiAimTab = Plr:AddLeftGroupbox('Antiaim')
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+local spoofing = false
+local offsetX, offsetY, offsetZ = 0, 0, 0
+
+local Toggle = AntiAimTab:AddToggle("HRPSpoof", { Text = "Spoofer", Tooltip = "Changes your position without replicating to your client. Y values too high/low can get you kicked and attempting to go through walls may also get you kicked.", Default = false })
+
+local XPosSlider = AntiAimTab:AddSlider("SpoofX", { Text = "X Offset", Min = -10, Max = 10, Default = 0, Rounding = 2, Callback = function(v) offsetX = v end })
+local YPosSlider = AntiAimTab:AddSlider("SpoofY", { Text = "Y Offset", Min = -4, Max = 7, Default = 0, Rounding = 2, Callback = function(v) offsetY = v end })
+local ZPosSlider = AntiAimTab:AddSlider("SpoofZ", { Text = "Z Offset", Min = -10, Max = 10, Default = 0, Rounding = 2, Callback = function(v) offsetZ = v end })
+
+local XRotSlider = AntiAimTab:AddSlider("SpoofRotX", { Text = "X Rot (deg)", Min = -180, Max = 180, Default = 0, Rounding = 1, Callback = function(v) rotX = math.rad(v) end })
+local YRotSlider = AntiAimTab:AddSlider("SpoofRotY", { Text = "Y Rot (deg)", Min = -180, Max = 180, Default = 0, Rounding = 1, Callback = function(v) rotY = math.rad(v) end })
+local ZRotSlider = AntiAimTab:AddSlider("SpoofRotZ", { Text = "Z Rot (deg)", Min = -180, Max = 180, Default = 0, Rounding = 1, Callback = function(v) rotZ = math.rad(v) end })
+
+
+Toggle:AddKeyPicker("HRPSpoofKey", {
+    Default = "None",
+    Text = "Spoofer",
+    Mode = "Toggle",
+    SyncToggleState = true,
+    Callback = function(pressed)
+        spoofing = Toggle.Value
+    end
+})
+
+local oldCFrame = nil
+
+RunService.Heartbeat:Connect(function()
+    if not spoofing and HRP then
+        oldCFrame = HRP.CFrame
+        local posOffset = CFrame.new(offsetX or 0, offsetY or 0, offsetZ or 0)
+        local rotOffset = CFrame.Angles(rotX or 0, rotY or 0, rotZ or 0)
+        HRP.CFrame = oldCFrame * posOffset * rotOffset
+
+        RunService.RenderStepped:Wait()
+
+        if HRP then
+            HRP.CFrame = oldCFrame
+        end
+    end
+end)
+
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local UPAngleChanger = false
+local RandomYawActive = false
+local ZeroTiltActive = false
+local UPAngleValue = 0
+
+AntiAimTab:AddToggle('YawChanger', {
+    Text = 'Player Yaw Editor',
+    Default = false,
+    Callback = function(val)
+        UPAngleChanger = val
+        if UPAngleChanger and ZeroTiltActive then
+            Library:Notify("You cannot use NaN UpAngle and a spoofed UpAngle", 5)
+        end
+    end
+})
+
+AntiAimTab:AddSlider('YawValue', {
+    Text = 'Player Yaw',
+    Tooltip = 'Sets your characters rotation. -160 = looking down, 160 = looking up',
+    Default = 0,
+    Min = -160,
+    Max = 160,
+    Rounding = 1,
+    Callback = function(val)
+        UPAngleValue = val
+    end
+})
+
+AntiAimTab:AddToggle('RandomYaw', {
+    Text = 'Randomise Yaw',
+    Default = false,
+    Callback = function(val)
+        RandomYawActive = val
+    end
+})
+
+AntiAimTab:AddToggle('ZeroTilt', {
+    Text = 'Amogus',
+    Tooltip = 'Cannot be used with Player Yaw | removes your head and puts your arms inside of your body, making you very hard to hit. does make you look likee a fucking chicken nugget tho',
+    Default = false,
+    Callback = function(val)
+        ZeroTiltActive = val
+        if UPAngleChanger and ZeroTiltActive then
+            Library:Notify("You cannot use NaN UpAngle and a spoofed UpAngle", 5)
+        end
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if Library.Unloaded then return end
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
+
+    local success, remote = pcall(function()
+        return ReplicatedStorage.Remotes.UpdateTilt
+    end)
+    if not (success and remote) then return end
+
+    if UPAngleChanger and ZeroTiltActive then
+        return
+    end
+
+    if UPAngleChanger then
+        if RandomYawActive then
+            if UPAngleValue == 160 then
+                UPAngleValue = -160
+            else
+                UPAngleValue = 160
+            end
+        end
+        remote:FireServer(UPAngleValue or 0)
+        return
+    end
+
+    if ZeroTiltActive then
+        remote:FireServer(0/0)
+        return
+    end
+end)
+
+
+
+
+
 local SpeedTab = Plr:AddLeftGroupbox("Speed")
 local BypassTab = Plr:AddRightGroupbox("Bypass")
 
@@ -1210,7 +1483,7 @@ local fovToggle = CamTab:AddToggle("FOVOverride", {Text = "FOV Override", Defaul
 local fovSlider = CamTab:AddSlider("FOVValue", {Text = "FOV Override Value", Default = 120, Min = 90, Max = 120, Rounding = 1})
 
 local zoomToggle = CamTab:AddToggle("ZoomOverride", {Text = "Zoom FOV Override", Default = false})
-zoomToggle:AddKeyPicker("ZoomKey", {Text = "Zoom Key", Default = "None", Mode = "Toggle"})
+zoomToggle:AddKeyPicker("ZoomKey", {Text = "Zoom", Default = "None", Mode = "Toggle"})
 local zoomSlider = CamTab:AddSlider("ZoomFOV", {Text = "Zoom FOV Value", Default = 10, Min = 1, Max = 70, Rounding = 1})
 
 local Camera = workspace.CurrentCamera
@@ -1359,13 +1632,20 @@ pcall(function()
     local OriginalCreateBullet = BulletModule.CreateBullet
 
     local function resolveTarget()
-        if not plr_target then return nil end
-        return plr_target
-    end
+        if not plr_target or plr_target == "" then return nil end
 
-    local function resolveTargetPosition()
-        if not plr_target then return nil end
-        return plr_target.Position
+        local plr = Players:FindFirstChild(plr_target)
+        if plr and plr.Character then
+            return plr.Character:FindFirstChild("Head")
+        end
+
+        local cur = workspace
+        for seg in string.gmatch(plr_target, "[^/]+") do
+            cur = cur and cur:FindFirstChild(seg)
+            if not cur then return nil end
+        end
+
+        return cur:IsA("BasePart") and cur or nil
     end
 
     local function predictVelocity(origin, destination, velocity, speed)
@@ -1388,36 +1668,42 @@ pcall(function()
 
     BulletModule.CreateBullet = newcclosure(function(...)
         local args = {...}
-        if silent_aim.enabled and plr_target then
-            local targetPart = resolveTarget()
-            local targetPos = resolveTargetPosition()
-            if targetPart and targetPos then
-                silent_aim.target_part = targetPart
 
-                local loadedammo = nil
+        if silent_aim.enabled and plr_target then
+            local head = resolveTarget()
+            if head then
+                silent_aim.target_part = head
+
+                local loadedammo
                 pcall(function()
                     local weapon = get_local_weapon()
-                    local inv_weapon = LocalPlayer and LocalPlayer.Backpack:FindFirstChild(weapon)
-                    if inv_weapon then
-                        local magazine = inv_weapon:FindFirstChild("Attachments") and inv_weapon.Attachments:FindFirstChild("Magazine")
-                        if magazine then
-                            loadedammo = magazine.ItemProperties:FindFirstChild("LoadedAmmo") and magazine.ItemProperties.LoadedAmmo:FindFirstChildOfClass("Folder")
+                    local inv = LocalPlayer and LocalPlayer.Backpack:FindFirstChild(weapon)
+                    if inv then
+                        local mag = inv:FindFirstChild("Attachments") and inv.Attachments:FindFirstChild("Magazine")
+                        if mag then
+                            loadedammo =
+                                mag.ItemProperties
+                                and mag.ItemProperties:FindFirstChild("LoadedAmmo")
+                                and mag.ItemProperties.LoadedAmmo:FindFirstChildOfClass("Folder")
                         end
                     end
                 end)
 
-                local ProjectileSpeed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
+                local speed = loadedammo and loadedammo:GetAttribute("MuzzleVelocity") or 300
                 if type(args[5]) ~= "table" then args[5] = {} end
+
                 args[5].CFrame = CFrame.new(
                     CurrentCamera.CFrame.Position,
-                    predictVelocity(CurrentCamera.CFrame.Position, targetPos, targetPart.Velocity or Vector3.new(), ProjectileSpeed)
+                    predictVelocity(
+                        CurrentCamera.CFrame.Position,
+                        head.Position,
+                        head.Velocity,
+                        speed
+                    )
                 )
 
                 if silent_aim.tracer then
-                    print("tracer placeholder")
-                end
-                if silent_aim.hitmarkers and typeof(showHitmarker) == "function" then
-                    print("hitmarker placeholder")
+                    createBeam(CurrentCamera.CFrame.Position, head.Position, tracerColor, 2, 0.5)
                 end
             else
                 silent_aim.target_part = nil
@@ -1429,6 +1715,7 @@ pcall(function()
         return OriginalCreateBullet(table.unpack(args))
     end)
 end)
+
 
 
 
