@@ -34,7 +34,7 @@ print('\n')
 print('\n')
 repo='https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/'
 
-Library=loadstring(game:HttpGet('https://hasteb.in/qISFXC2fyZD0cAz'))()
+Library=loadstring(game:HttpGet('https://codeberg.org/fuse/ch/raw/branch/main/lib.lua'))()
 ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
 SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
 Options = Library.Options
@@ -363,13 +363,126 @@ Window = Library:CreateWindow({
 local visl = files.gca("visual.png", "images")
 Tabs={Main=Window:AddTab("Visual", visl)}
 
-local ESPSubtab=Tabs.Main:AddLeftTabbox()
+ESPSubtab=Tabs.Main:AddLeftTabbox()
 SubESP=ESPSubtab:AddTab("ESP")
 SubPersonal=ESPSubtab:AddTab("Personalisation")
 
-local ChamSubtab=Tabs.Main:AddRightTabbox() 
+ChamSubtab=Tabs.Main:AddRightTabbox() 
 SubChams=ChamSubtab:AddTab("Chams") 
 SubChamsPersonal=ChamSubtab:AddTab("Personalisation")
+
+CrosshairSubtab=Tabs.Main:AddRightTabbox()
+Subcross=CrosshairSubtab:AddTab('Crosshair')
+SubcrossP=CrosshairSubtab:AddTab("Personalisation")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local crosshairEnabled = false
+local crosshairGap = 10
+local crosshairLength = 20
+local crosshairWidth = 2
+local crosshairSpin = false
+local crosshairSpinSpeed = 1
+local crosshairOutline = true
+local colorStart = Color3.fromRGB(255,255,255)
+local colorEnd = Color3.fromRGB(0,0,255)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomCrosshair"
+ScreenGui.Parent = PlayerGui
+ScreenGui.IgnoreGuiInset = true
+
+local Crosshair = Instance.new("Frame")
+Crosshair.Size = UDim2.new(0,0,0,0)
+Crosshair.Position = UDim2.new(0.5,0,0.5,0)
+Crosshair.AnchorPoint = Vector2.new(0.5,0.5)
+Crosshair.BackgroundTransparency = 1
+Crosshair.Parent = ScreenGui
+
+local function createLine(isHorizontal)
+    local line = Instance.new("Frame")
+    line.BackgroundTransparency = 0
+    line.Size = isHorizontal and UDim2.new(0,crosshairLength,0,crosshairWidth) or UDim2.new(0,crosshairWidth,0,crosshairLength)
+    line.AnchorPoint = Vector2.new(0.5,0.5)
+    line.BackgroundColor3 = colorStart
+    line.Parent = Crosshair
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorStart), ColorSequenceKeypoint.new(1,colorEnd)})
+    if not isHorizontal then
+        grad.Rotation = 90
+    end
+    grad.Parent = line
+
+    local outline = Instance.new("UIStroke")
+    outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    outline.Color = Color3.new(0,0,0)
+    outline.Thickness = 1
+    outline.Enabled = crosshairOutline
+    outline.Parent = line
+
+    return line, grad, outline
+end
+
+local upLine, upGrad, upOutline = createLine(false)
+local downLine, downGrad, downOutline = createLine(false)
+local leftLine, leftGrad, leftOutline = createLine(true)
+local rightLine, rightGrad, rightOutline = createLine(true)
+
+local EnableToggle = Subcross:AddToggle("CrosshairEnabled", {Text = "Enable Crosshair", Default = false, Callback = function(val) crosshairEnabled = val end})
+local GapSlider = SubcrossP:AddSlider("CrosshairGap", {Text = "Gap", Default = 10, Min = 0, Max = 50, Rounding = 1, Callback = function(val) crosshairGap = val end})
+local LengthSlider = SubcrossP:AddSlider("CrosshairLength", {Text = "Length", Default = 20, Min = 1, Max = 50, Rounding = 1, Callback = function(val) crosshairLength = val end})
+local WidthSlider = SubcrossP:AddSlider("CrosshairWidth", {Text = "Width", Default = 2, Min = 1, Max = 10, Rounding = 1, Callback = function(val) crosshairWidth = val end})
+local SpinToggle = SubcrossP:AddToggle("CrosshairSpin", {Text = "Spin", Default = false, Callback = function(val) crosshairSpin = val end})
+local SpinSpeedSlider = SubcrossP:AddSlider("CrosshairSpinSpeed", {Text = "Spin Speed", Default = 1, Min = 0.1, Max = 10, Rounding = 1, Callback = function(val) crosshairSpinSpeed = val end})
+local OutlineToggle = SubcrossP:AddToggle("CrosshairOutline", {Text = "Render Outline", Default = true, Callback = function(val) 
+    crosshairOutline = val 
+    upOutline.Enabled = val
+    downOutline.Enabled = val
+    leftOutline.Enabled = val
+    rightOutline.Enabled = val
+end})
+
+local niggasex = SubcrossP:AddLabel("Crosshair Gradient Colors")
+local ColorPicker1 = niggasex:AddColorPicker("CrosshairColorFront", {Default = colorStart, Title = "Front Color", Callback = function(val) colorStart = val end})
+local ColorPicker2 = niggasex:AddColorPicker("CrosshairColorEnd", {Default = colorEnd, Title = "End Color", Callback = function(val) colorEnd = val end})
+
+local spinAngle = 0
+RunService.RenderStepped:Connect(function(dt)
+    if not crosshairEnabled then
+        Crosshair.Visible = false
+        return
+    end
+    Crosshair.Visible = true
+
+    if crosshairSpin then
+        spinAngle = spinAngle + crosshairSpinSpeed * dt * 60
+        if spinAngle > 360 then spinAngle = spinAngle - 360 end
+    else
+        spinAngle = 0
+    end
+    Crosshair.Rotation = spinAngle
+
+    leftLine.Size = UDim2.new(0,crosshairLength,0,crosshairWidth)
+    rightLine.Size = leftLine.Size
+    upLine.Size = UDim2.new(0,crosshairWidth,0,crosshairLength)
+    downLine.Size = upLine.Size
+
+    leftLine.Position = UDim2.new(0.5, -crosshairGap - crosshairLength/2, 0.5, 0)
+    rightLine.Position = UDim2.new(0.5, crosshairGap + crosshairLength/2, 0.5, 0)
+    upLine.Position = UDim2.new(0.5, 0, 0.5, -crosshairGap - crosshairLength/2)
+    downLine.Position = UDim2.new(0.5, 0, 0.5, crosshairGap + crosshairLength/2)
+
+    upGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorStart), ColorSequenceKeypoint.new(1,colorEnd)})
+    downGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorStart), ColorSequenceKeypoint.new(1,colorEnd)})
+    leftGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorStart), ColorSequenceKeypoint.new(1,colorEnd)})
+    rightGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorStart), ColorSequenceKeypoint.new(1,colorEnd)})
+end)
+
+
 
 
 boxEspEnabled, nameEspEnabled, hpBarEnabled, hpFlagEnabled = false, false, false, false
@@ -954,7 +1067,7 @@ getgenv().silent_aim = {
 local worl = files.gca("world.png", "images")
 local World = Window:AddTab("World", worl)
 
-local ModWorldBox = World:AddLeftGroupbox("Modifications")
+ModWorldBox = World:AddLeftGroupbox("Modifications")
 local Lighting = game:GetService("Lighting")
 local Atmosphere = Lighting.Atmosphere
 
@@ -1179,7 +1292,7 @@ end)
 
 
 
-local VisWorldBox = World:AddRightGroupbox("Visibility")
+VisWorldBox = World:AddRightGroupbox("Visibility")
 
 
 local FoliageSurfacePartsToggle = VisWorldBox:AddToggle('FoliageSurfaceParts', {
@@ -1227,7 +1340,7 @@ local FoliageSurfacePartsToggle = VisWorldBox:AddToggle('FoliageSurfaceParts', {
 
 
 
-local LeftGroupBox = Combat:AddRightGroupbox("Silent Aim")
+LeftGroupBox = Combat:AddRightGroupbox("Silent Aim")
 
 LeftGroupBox:AddToggle("SilentAimEnabled", {
     Text = "Silent Aim",
@@ -1407,8 +1520,10 @@ end)
 local playerl = files.gca("player.png", "images")
 Plr = Window:AddTab('Player', playerl)
 
+end)
+registerFuncAuto(function()
 
-local AntiAimTab = Plr:AddLeftGroupbox('Antiaim')
+AntiAimTab = Plr:AddLeftGroupbox('Antiaim')
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -1544,8 +1659,8 @@ end)
 
 
 
-local SpeedTab = Plr:AddLeftGroupbox("Speed")
-local hvhTab = Plr:AddRightGroupbox("HVH")
+SpeedTab = Plr:AddLeftGroupbox("Speed")
+hvhTab = Plr:AddRightGroupbox("HVH")
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -1673,7 +1788,7 @@ Options.SP_Amount:OnChanged(function()
     getgenv().SP_Amount = Options.SP_Amount.Value
 end)
 
-local BypassTab = Plr:AddRightGroupbox("Bypass")
+BypassTab = Plr:AddRightGroupbox("Bypass")
 
 speedState = {
     enabled = false,
@@ -1684,8 +1799,10 @@ speedState = {
 local toggleObj = SpeedTab:AddToggle("speed_toggle", { Text = "Speedhack", Default = false })
 local keypickerLabel = toggleObj:AddKeyPicker("speed_keypicker", { Text = "Speedhack", Default = "None", Mode = "Toggle" })
 local sliderObj = SpeedTab:AddSlider("speed_value", { Text = "Speed Value", Default = 1, Min = 0, Max = 1.5, Rounding = 2 })
-local dropdownObj = SpeedTab:AddDropdown("speed_type", { Text = "Speedhack Type", Values = { "Walkspeed", "CFrame", "TranslateBy" }, Default = 1 })
-    
+dropdownObj = SpeedTab:AddDropdown("speed_type", { Text = "Speedhack Type", Values = { "Walkspeed", "CFrame", "TranslateBy" }, Default = 1 })
+
+end)
+registerFuncAuto(function()
 
 BypassTab:AddToggle('NoFallToggle', {
     Text = 'Bypass Fall',
@@ -1704,7 +1821,114 @@ keyObj:OnChanged(function(k) speedState.key = k end)
 sliderFlag:OnChanged(function(v) speedState.speed = v end)
 dropdownFlag:OnChanged(function(v) speedState.type = v end)
 
-local CamTab = Plr:AddRightGroupbox('Camera')
+end)
+registerFuncAuto(function()
+
+
+CamTab = Plr:AddRightGroupbox('Camera')
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+local char = lp.Character or lp.CharacterAdded:Wait()
+
+local tpEnabled = false
+local tpt = CamTab:AddToggle("ThirdPersonToggle", { Text = "Third Person", Default = false })
+tpt:OnChanged(function(val)
+    tpEnabled = val
+end)
+
+local tpk = tpt:AddKeyPicker("ThirdPersonBind", { Default = "None", Mode = "Toggle", SyncToggleState = true })
+tpk:OnChanged(function(val)
+    if val then
+        tpEnabled = not tpEnabled
+        tpt:SetValue(tpEnabled)
+    end
+end)
+
+local tpZ = 5
+local tpY = 1
+local tpdist = CamTab:AddSlider("ThirdPersonZ", { Text = "Distance", Default = tpZ, Min = 0, Max = 10, Rounding = 2 })
+tpdist:OnChanged(function(val) tpZ = val end)
+local tpvdist = CamTab:AddSlider("ThirdPersonY", { Text = "Vertical Distance", Default = tpY, Min = 0, Max = 5, Rounding = 2 })
+tpvdist:OnChanged(function(val) tpY = val end)
+
+local tpchamsEnabled = false
+local tpchamColor = Color3.fromRGB(255,255,255)
+local tpchamTransparency = 0.5
+local tpchamRate = 0.1
+local tpchams = CamTab:AddToggle("VisualiserToggle", { Text = "Third Person Chams", Default = false })
+tpchams:OnChanged(function(val) tpchamsEnabled = val end)
+local tpchamc = tpchams:AddColorPicker("VisualiserColor", { Default = tpchamColor, Transparency = tpchamTransparency })
+tpchamc:OnChanged(function(color, trans)
+    tpchamColor = color
+    tpchamTransparency = trans
+end)
+local tpchamurSlider = CamTab:AddSlider("VisualiserRate", { Text = "Update Rate", Default = tpchamRate, Min = 0.01, Max = 0.5, Rounding = 2 })
+tpchamurSlider:OnChanged(function(val) tpchamRate = val end)
+
+local root = workspace:FindFirstChild("NoCollision")
+if not root then return end
+local effects = root:FindFirstChild("Effects")
+if not effects then
+    effects = Instance.new("Folder")
+    effects.Name = "Effects"
+    effects.Parent = root
+end
+
+local model = Instance.new("Model")
+model.Name = "VisualR15"
+model.Parent = effects
+
+local limb_names = {
+    "Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
+    "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot",
+    "RightUpperLeg","RightLowerLeg","RightFoot"
+}
+
+local visuals = {}
+for _,name in ipairs(limb_names) do
+    local src = char:FindFirstChild(name)
+    if src and src:IsA("BasePart") then
+        local p = Instance.new("Part")
+        p.Name = name
+        p.Size = src.Size
+        p.Anchored = true
+        p.CanCollide = false
+        p.CanTouch = false
+        p.CanQuery = false
+        p.Material = Enum.Material.ForceField
+        p.Color = tpchamColor
+        p.Transparency = tpchamTransparency
+        p.Parent = model
+        visuals[src] = p
+    end
+end
+
+RunService:BindToRenderStep("ThirdPersonCamera", Enum.RenderPriority.Camera.Value+1, function()
+    if tpEnabled and char.PrimaryPart then
+        local rootPos = char.PrimaryPart.Position
+        cam.CFrame = CFrame.new(rootPos + Vector3.new(0, tpY, tpZ), rootPos)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if tpchamsEnabled then
+            for src, vis in pairs(visuals) do
+                if src and vis then
+                    vis.CFrame = src.CFrame
+                    vis.Color = tpchamColor
+                    vis.Transparency = tpchamTransparency
+                end
+            end
+        end
+        task.wait(tpchamRate)
+    end
+end)
+
+CamTab:AddDivider()
 
 CamTab:AddToggle("OverrideVM",{
     Text="Override Viewmodel",
@@ -1782,6 +2006,10 @@ CamTab:AddSlider("HLOutlineTrans",{
     Callback=function(v) hlOutlineTrans=v end
 })
 
+
+end)
+registerFuncAuto(function()
+
 CamTab:AddDivider()
 local fovToggle = CamTab:AddToggle("FOVOverride", {Text = "FOV Override", Default = false})
 local fovSlider = CamTab:AddSlider("FOVValue", {Text = "FOV Override Value", Default = 120, Min = 90, Max = 120, Rounding = 1})
@@ -1794,6 +2022,8 @@ local scrollToggle = CamTab:AddToggle("ScrollFOV", {Text = "Scroll FOV", Default
 local scrollAmount = 5
 
 local Camera = workspace.CurrentCamera
+
+
 local UIS = game:GetService("UserInputService")
 local zoomKeyObj = Options.ZoomKey
 local scrollFOV = 90
