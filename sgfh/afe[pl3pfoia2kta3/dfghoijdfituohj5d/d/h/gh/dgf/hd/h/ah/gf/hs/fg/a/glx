@@ -1826,50 +1826,203 @@ registerFuncAuto(function()
 
 
 CamTab = Plr:AddRightGroupbox('Camera')
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+local lp = Players.LocalPlayer
+
+local activeRemovals = {}
+local originalBlurSize = nil
+local blurHookConnected = false
+
+local function getGui()
+	return lp:FindFirstChild("PlayerGui")
+end
+
+local function backgroundFrames(pg)
+	local backpackFrame = pg
+		:FindFirstChild("MainGui", true)
+		:FindFirstChild("MainFrame", true)
+		:FindFirstChild("BackpackFrame", true)
+
+	if not backpackFrame then return end
+
+	local targets = {
+		"CharacterFrame",
+		"InventoryFrame",
+		"Loot"
+	}
+
+	for i = 1, #targets do
+		local f = backpackFrame:FindFirstChild(targets[i], true)
+		if f and f:IsA("Frame") then
+			f.BackgroundTransparency = 1
+		end
+	end
+
+	for _, obj in ipairs(backpackFrame:GetDescendants()) do
+		if obj:IsA("ImageLabel") and obj.Name == "Decor" then
+			obj.ImageTransparency = 1
+		end
+	end
+end
+
+local function disableEffect(pg, name)
+	local effect = pg
+		:FindFirstChild("NoInsetGui", true)
+		:FindFirstChild("MainFrame", true)
+		:FindFirstChild("ScreenEffects", true)
+		:FindFirstChild(name, true)
+
+	if effect then
+		effect.Visible = false
+	end
+end
+
+local function toggleInventoryBlur(enabled)
+	local blur = Lighting:FindFirstChild("InventoryBlur")
+	if not blur or not blur:IsA("BlurEffect") then return end
+
+	if enabled then
+		if originalBlurSize == nil then
+			originalBlurSize = blur.Size
+		end
+		if not blurHookConnected then
+			blurHookConnected = true
+			UserInputService.InputBegan:Connect(function(input, gpe)
+				if gpe then return end
+				if input.KeyCode == Enum.KeyCode.Tab then
+					blur.Size = 0
+				end
+			end)
+		end
+	else
+		if originalBlurSize then
+			blur.Size = originalBlurSize
+			originalBlurSize = nil
+		end
+		blurHookConnected = false
+	end
+end
+
+local handlers = {
+	BackgroundFrames = function(pg)
+		backgroundFrames(pg)
+	end,
+	Visor = function(pg)
+		disableEffect(pg, "Visor")
+	end,
+	Flashbang = function(pg)
+		disableEffect(pg, "Flashbang")
+	end,
+	Mask = function(pg)
+		disableEffect(pg, "Mask")
+	end,
+	Scopes = function(pg)
+		disableEffect(pg, "Scopes")
+	end,
+	InventoryBlur = function(pg)
+		toggleInventoryBlur(true)
+	end,
+}
+
+local function applyAll()
+	local pg = getGui()
+	if not pg then return end
+
+	for k in pairs(activeRemovals) do
+		local fn = handlers[k]
+		if fn then
+			fn(pg)
+		end
+	end
+
+	if not activeRemovals.InventoryBlur then
+		toggleInventoryBlur(false)
+	end
+end
+
+lp.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	applyAll()
+end)
+
+local RemovalDropdownM = CamTab:AddDropdown("RemovalDropdown", {
+	Values = {
+		"BackgroundFrames",
+		"Visor",
+		"Flashbang",
+		"Mask",
+		"Scopes",
+		"InventoryBlur",
+	},
+	Multi = true,
+	Text = "Removals",
+})
+
+RemovalDropdownM:OnChanged(function()
+	table.clear(activeRemovals)
+	for name, enabled in pairs(Options.RemovalDropdown.Value) do
+		if enabled then
+			activeRemovals[name] = true
+		end
+	end
+	applyAll()
+end)
+
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+
 local lp = Players.LocalPlayer
-local cam = workspace.CurrentCamera
 local char = lp.Character or lp.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local cam = workspace.CurrentCamera
 
 local tpEnabled = false
-local tpt = CamTab:AddToggle("ThirdPersonToggle", { Text = "Third Person", Default = false })
-tpt:OnChanged(function(val)
-    tpEnabled = val
-end)
-
-local tpk = tpt:AddKeyPicker("ThirdPersonBind", { Default = "None", Mode = "Toggle", SyncToggleState = true })
-tpk:OnChanged(function(val)
-    if val then
-        tpEnabled = not tpEnabled
-        tpt:SetValue(tpEnabled)
-    end
-end)
-
 local tpZ = 5
 local tpY = 1
-local tpdist = CamTab:AddSlider("ThirdPersonZ", { Text = "Distance", Default = tpZ, Min = 0, Max = 10, Rounding = 2 })
-tpdist:OnChanged(function(val) tpZ = val end)
-local tpvdist = CamTab:AddSlider("ThirdPersonY", { Text = "Vertical Distance", Default = tpY, Min = 0, Max = 5, Rounding = 2 })
-tpvdist:OnChanged(function(val) tpY = val end)
 
-local tpchamsEnabled = false
-local tpchamColor = Color3.fromRGB(255,255,255)
-local tpchamTransparency = 0.5
-local tpchamRate = 0.1
-local tpchams = CamTab:AddToggle("VisualiserToggle", { Text = "Third Person Chams", Default = false })
-tpchams:OnChanged(function(val) tpchamsEnabled = val end)
-local tpchamc = tpchams:AddColorPicker("VisualiserColor", { Default = tpchamColor, Transparency = tpchamTransparency })
-tpchamc:OnChanged(function(color, trans)
-    tpchamColor = color
-    tpchamTransparency = trans
-end)
-local tpchamurSlider = CamTab:AddSlider("VisualiserRate", { Text = "Update Rate", Default = tpchamRate, Min = 0.01, Max = 0.5, Rounding = 2 })
-tpchamurSlider:OnChanged(function(val) tpchamRate = val end)
+local visEnabled = false
+local visMaterial = Enum.Material.ForceField
+local visTransparency = 0.5
+local visGlowEnabled = false
+local visGlowIntensity = 25
 
-local root = workspace:FindFirstChild("NoCollision")
-if not root then return end
+local boxColor = Color3.fromRGB(255,255,255)
+
+local Limbs = {"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
+               "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot",
+               "RightUpperLeg","RightLowerLeg","RightFoot"}
+
+local visuals = {}
+
+local tpt = CamTab:AddToggle("ThirdPersonToggle",{Text="Third Person", Default=false})
+tpt:OnChanged(function(v) tpEnabled = v end)
+tpt:AddKeyPicker("ThirdPersonBind",{Default="None", Text="Third Person", Mode="Toggle", SyncToggleState=true})
+
+local tpDistSlider = CamTab:AddSlider("ThirdPersonZ",{Text="Distance", Default=tpZ, Min=0, Max=10, Rounding=2})
+tpDistSlider:OnChanged(function(v) tpZ = v end)
+
+local tpVSlider = CamTab:AddSlider("ThirdPersonY",{Text="Vertical Offset", Default=tpY, Min=0, Max=5, Rounding=2})
+tpVSlider:OnChanged(function(v) tpY = v end)
+
+local visToggle = CamTab:AddToggle("VisualiserToggle",{Text="Visualiser", Default=false})
+visToggle:OnChanged(function(v) visEnabled = v end)
+
+local matDropdown = CamTab:AddDropdown("VisualiserMaterial",{Text="Material", Values={"ForceField","Neon"}, Default=1})
+matDropdown:OnChanged(function(v) visMaterial = v=="Neon" and Enum.Material.Neon or Enum.Material.ForceField end)
+
+local transSlider = CamTab:AddSlider("VisualiserTransparency",{Text="Transparency", Min=0, Max=1, Default=visTransparency, Rounding=2})
+transSlider:OnChanged(function(v) visTransparency = v end)
+
+local glowToggle = CamTab:AddToggle("VisualiserGlow",{Text="Glow", Default=false})
+glowToggle:OnChanged(function(v) visGlowEnabled = v end)
+
+local glowSlider = CamTab:AddSlider("GlowIntensity",{Text="Glow Intensity", Min=1, Max=50, Default=visGlowIntensity, Rounding=0})
+glowSlider:OnChanged(function(v) visGlowIntensity = v end)
+
+local root = workspace:FindFirstChild("NoCollision") or workspace
 local effects = root:FindFirstChild("Effects")
 if not effects then
     effects = Instance.new("Folder")
@@ -1878,53 +2031,59 @@ if not effects then
 end
 
 local model = Instance.new("Model")
-model.Name = "VisualR15"
+model.Name = "TPVisuals"
 model.Parent = effects
 
-local limb_names = {
-    "Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand",
-    "RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot",
-    "RightUpperLeg","RightLowerLeg","RightFoot"
-}
-
-local visuals = {}
-for _,name in ipairs(limb_names) do
+for _, name in ipairs(Limbs) do
     local src = char:FindFirstChild(name)
     if src and src:IsA("BasePart") then
         local p = Instance.new("Part")
-        p.Name = name
         p.Size = src.Size
         p.Anchored = true
         p.CanCollide = false
         p.CanTouch = false
         p.CanQuery = false
-        p.Material = Enum.Material.ForceField
-        p.Color = tpchamColor
-        p.Transparency = tpchamTransparency
+        p.Material = visMaterial
+        p.Color = boxColor
+        p.Transparency = 1
         p.Parent = model
-        visuals[src] = p
+
+        local ador = Instance.new("BoxHandleAdornment")
+        ador.Size = src.Size
+        ador.Adornee = src
+        ador.ZIndex = 5
+        ador.AlwaysOnTop = false
+        ador.Visible = false
+        ador.Parent = src
+
+        visuals[src] = {Part=p, GlowAdor=ador}
     end
 end
 
 RunService:BindToRenderStep("ThirdPersonCamera", Enum.RenderPriority.Camera.Value+1, function()
-    if tpEnabled and char.PrimaryPart then
-        local rootPos = char.PrimaryPart.Position
-        cam.CFrame = CFrame.new(rootPos + Vector3.new(0, tpY, tpZ), rootPos)
+    if tpEnabled then
+        cam.CFrame = cam.CFrame * CFrame.new(0,tpY,tpZ)
     end
-end)
 
-task.spawn(function()
-    while true do
-        if tpchamsEnabled then
-            for src, vis in pairs(visuals) do
-                if src and vis then
-                    vis.CFrame = src.CFrame
-                    vis.Color = tpchamColor
-                    vis.Transparency = tpchamTransparency
-                end
+    local showVisuals = tpEnabled and visEnabled
+    for src, data in pairs(visuals) do
+        if src and data.Part and data.GlowAdor then
+            data.Part.CFrame = src.CFrame
+            data.Part.Material = visMaterial
+            data.Part.Color = boxColor
+            data.Part.Transparency = showVisuals and visTransparency or 1
+
+            data.GlowAdor.Visible = showVisuals and visGlowEnabled
+            if data.GlowAdor.Visible then
+                local mul = 1 + (visGlowIntensity-1)*9/99
+                local r = math.clamp(math.floor(boxColor.R*255*mul),0,255)
+                local g = math.clamp(math.floor(boxColor.G*255*mul),0,255)
+                local b = math.clamp(math.floor(boxColor.B*255*mul),0,255)
+                data.GlowAdor.Color3 = Color3.fromRGB(r,g,b)
+                data.GlowAdor.Size = src.Size
+                data.GlowAdor.Transparency = 0
             end
         end
-        task.wait(tpchamRate)
     end
 end)
 
