@@ -1,4 +1,5 @@
 warn("r")
+
 local funcsToLoad = {}
 local autoFuncId = 0
 
@@ -13,9 +14,7 @@ function loadfunc()
     end
 end
 
-
 registerFuncAuto(function()
-
 
 print('\n')
 print('\n')
@@ -35,6 +34,56 @@ print('\n')
 repo='https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/'
 
 Library=loadstring(game:HttpGet('https://codeberg.org/fuse/ch/raw/branch/main/lib.lua'))()
+
+if getgenv().GG_LOADED then
+    Library:Notify({
+        Title = "RuntimeException: ScriptExecutionViolation",
+        Description = "Script already loaded in runtime; detected at line :40.\nExecution context already active.\nSet getgenv().GG_LOADED = false to override this safeguard.",
+        Time = 6
+    })
+    task.wait(9e9)
+end
+getgenv().GG_LOADED = true
+
+local success, e = pcall(IdentifyExecutor)
+
+if success then
+    if e ~= "Xeno" then
+        Library:Notify({
+            Title = "RuntimeNotify: Executor",
+            Description = e .. " is extremely unstable. Although it is supported, it is far from recommended.",
+            Time = 6
+        })
+    end
+else
+    local xenoSuccess = pcall(function() return Xeno.about end)
+    if xenoSuccess then
+        Library:Notify({
+            Title = "RuntimeNotify: Executor",
+            Description = "Xeno is extremely unstable. Although it is supported, it is far from recommended.",
+            Time = 6
+        })
+    end
+end
+
+local name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name:lower()
+UNIVERSAL = true
+
+if name:find("project") or name:find("estonia") or name:find("city") then
+    UNIVERSAL = false
+end
+
+function pcallCheck(func)
+    if not UNIVERSAL then
+        local success, result = pcall(func)
+        return success, result
+    end
+warn("\nRuntimeException:\npcallCheck\nError caught in universal pcall check.\nAre you in an unsupported game?\n")
+end
+
+pcallCheck(function()
+end)
+
 ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
 SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
 Options = Library.Options
@@ -67,7 +116,9 @@ end
 
 local RunService = game:GetService("RunService")
 
+pcallCheck(function()
 local Camera = workspace:WaitForChild("Camera")
+end)
 
 local armsColor = Color3.new(1,1,1)
 local weaponColor = Color3.new(1,1,1)
@@ -86,6 +137,7 @@ local hlFillTrans = 0
 local hlOutlineTrans = 0
 
 local function getParts(vm)
+pcallCheck(function()
     local arms = {}
     local weapon = {}
     local item = vm:FindFirstChild("Item")
@@ -101,9 +153,11 @@ local function getParts(vm)
     end
 
     return arms, weapon
+    end)
 end
 
 local function apply(vm)
+    pcallCheck(function()
     if not overrideVM or not vm then return end
 
     for _,v in ipairs(vm:GetDescendants()) do
@@ -149,9 +203,11 @@ local function apply(vm)
         local h = vm:FindFirstChild("VMHighlight")
         if h then h:Destroy() end
     end
+    end)
 end
 
 spawn(function()
+pcallCheck(function()
     while true do
         local vm = Camera:FindFirstChild("ViewModel")
         if vm then
@@ -159,6 +215,7 @@ spawn(function()
         end
         wait(0.05)
     end
+end)
 end)
 
 
@@ -260,6 +317,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     if targeting_flags.mitarget then
+        pcallCheck(function()
         local mi24 =
             workspace:FindFirstChild("AiZones")
             and workspace.AiZones:FindFirstChild("HeliAirfield")
@@ -277,9 +335,11 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
+    end)
     end
 
     if targeting_flags.bandit_target or targeting_flags.boss_target then
+        pcallCheck(function()
         local aiZones = workspace:FindFirstChild("AiZones")
         if aiZones then
             for _, zone in ipairs(aiZones:GetChildren()) do
@@ -304,6 +364,7 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
+    end)
     end
 
     plr_target = closest
@@ -760,9 +821,11 @@ local ForceHitBindObj = Options.ForceHitBind
 RS = game:GetService("RunService")
 ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+pcallCheck(function()
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local FireProjectile = Remotes:WaitForChild("FireProjectile")
 local ProjectileInflict = Remotes:WaitForChild("ProjectileInflict")
+end)
 
 local function getTargetPart()
     if not plr_target or plr_target == "" then return nil end
@@ -847,8 +910,11 @@ GunMods:AddToggle("NoRecoilToggle", {
 })
 
 local RepStorage = game:GetService("ReplicatedStorage")
+pcallCheck(function()
 local items = RepStorage:WaitForChild("ItemsList")
+end)
 
+pcallCheck(function()
 local gunModules = {}
 local gunSettingsModules = {}
 local ammoTypes = RepStorage:WaitForChild("AmmoTypes")
@@ -856,8 +922,10 @@ local originals = {}
 local originalFireRates = {}
 local originalAmmoStats = {}
 local cached = false
+end)
 
 local function cacheModules()
+pcallCheck(function()
 	if cached then return end
 	table.clear(gunModules)
 	table.clear(gunSettingsModules)
@@ -893,6 +961,7 @@ local function cacheModules()
 	end
 
 	cached = true
+    end)
 end
 
 cacheModules()
@@ -910,6 +979,7 @@ states = {
 }
 
 local function applyNoSway()
+pcallCheck(function()
 	for _, mod in ipairs(gunModules) do
 		if states.noSway and mod.updateClient then
 			local old_update = mod.updateClient
@@ -925,9 +995,11 @@ local function applyNoSway()
 			end
 		end
 	end
+    end)
 end
 
 local function applyNoObstructions()
+pcallCheck(function()
 	if not states.noObstructions then return end
 	for _, mod in ipairs(gunModules) do
 		pcall(function()
@@ -937,9 +1009,11 @@ local function applyNoObstructions()
 			mod.TouchWallRotY = 0.001
 		end)
 	end
+    end)
 end
 
 local function restoreNoObstructions()
+pcallCheck(function()
 	for mod, data in pairs(originals) do
 		pcall(function()
 			mod.TouchWallPosY = data.TouchWallPosY
@@ -948,9 +1022,11 @@ local function restoreNoObstructions()
 			mod.TouchWallRotY = data.TouchWallRotY
 		end)
 	end
+    end)
 end
 
 local function applyInstantAim()
+pcallCheck(function()
 	for _, mod in ipairs(gunModules) do
 		if states.instantAim then
 			pcall(function()
@@ -959,27 +1035,33 @@ local function applyInstantAim()
 			end)
 		end
 	end
+    end)
 end
 
 local function restoreInstantAim()
+pcallCheck(function()
 	for mod, data in pairs(originals) do
 		pcall(function()
 			mod.AimInSpeed = data.AimInSpeed
 			mod.AimOutSpeed = data.AimOutSpeed
 		end)
 	end
+    end)
 end
 
 local function applyUnlockFireModes()
+pcallCheck(function()
 	if not states.unlockFireModes then return end
 	for _, mod in ipairs(gunModules) do
 		pcall(function()
 			mod.FireModes = { "Auto", "Semi" }
 		end)
 	end
+    end)
 end
 
 local function restoreUnlockFireModes()
+pcallCheck(function()
 	for mod, data in pairs(originals) do
 		if data.FireModes then
 			pcall(function()
@@ -987,26 +1069,32 @@ local function restoreUnlockFireModes()
 			end)
 		end
 	end
+    end)
 end
 
 local function applyFireRate()
+pcallCheck(function()
 	if not states.rpmBoost then return end
 	for _, mod in ipairs(gunSettingsModules) do
 		pcall(function()
 			mod.FireRate = states.rpmInterval
 		end)
 	end
+    end)
 end
 
 local function restoreFireRate()
+pcallCheck(function()
 	for mod, rate in pairs(originalFireRates) do
 		pcall(function()
 			mod.FireRate = rate
 		end)
 	end
+    end)
 end
 
 local function applyAmmoMods()
+pcallCheck(function()
 	for _, ammo in ipairs(ammoTypes:GetChildren()) do
 		local stats = originalAmmoStats[ammo]
 		if stats then
@@ -1014,6 +1102,7 @@ local function applyAmmoMods()
 			if states.nodrop then ammo:SetAttribute("ProjectileDrop", 0) else ammo:SetAttribute("ProjectileDrop", stats.ProjectileDrop) end
 		end
 	end
+    end)
 end
 
 
@@ -1028,6 +1117,7 @@ GunMods:AddToggle("nodrop", { Text = "No Drop", Default = false, Callback = func
 GunMods:AddToggle("InstantEquip", { Text = "Instant Equip", Default = false, Callback = function(v) states.instantEquip = v end })
 
 task.spawn(function()
+pcallCheck(function()
 	while true do
 		task.wait(0.001)
 		if Library.Unloaded then break end
@@ -1048,13 +1138,15 @@ task.spawn(function()
 			end
 		end
 	end
+    end)
 end)
 
+pcallCheck(function()
 ammoTypes.ChildAdded:Connect(function()
 	task.wait()
 	applyAmmoMods()
 end)
-
+end)
 
 getgenv().silent_aim = {
     enabled = false,
@@ -1068,14 +1160,20 @@ local worl = files.gca("world.png", "images")
 local World = Window:AddTab("World", worl)
 
 ModWorldBox = World:AddLeftGroupbox("Modifications")
+
 local Lighting = game:GetService("Lighting")
-local Atmosphere = Lighting.Atmosphere
+pcallCheck(function()
+Atmosphere = Lighting.Atmosphere
+end)
 
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
+pcallCheck(function()
 local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+end)
 
-local world_state = {
+pcallCheck(function()
+world_state = {
     ambient_enabled = false,
     ambient = Lighting.Ambient,
 
@@ -1289,12 +1387,13 @@ RunService.RenderStepped:Connect(function()
         Lighting.ClockTime = world_state.clock
     end
 end)
-
+end)
 
 
 VisWorldBox = World:AddRightGroupbox("Visibility")
 
 
+pcallCheck(function()
 local FoliageSurfacePartsToggle = VisWorldBox:AddToggle('FoliageSurfaceParts', {
     Text = 'No Foliage',
     Default = false,
@@ -1333,15 +1432,64 @@ local FoliageSurfacePartsToggle = VisWorldBox:AddToggle('FoliageSurfaceParts', {
         end
     end
 })
+end)
 
+AimLockBox = Combat:AddRightGroupbox("Aimlock")
 
+local AimLockToggle = AimLockBox:AddToggle("AimlockEnabled", {
+    Text = "Enable Aimlock",
+    Default = false
+})
 
+AimLockToggle:AddKeyPicker("AimlockKey", {
+    Default = "None",
+    SyncToggleState = true,
+    Mode = "Hold",
+    Text = "Aimlock"
+})
 
+local AimLockSmooth = AimLockBox:AddSlider("AimlockSmooth", {
+    Text = "Accuracy",
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2
+})
 
+task.spawn(function()
+    while task.wait() do
+        if not Toggles.AimlockEnabled.Value then continue end
+        local keyObj = Options.AimlockKey
+        if not keyObj.Value then continue end
+        local targetInstance
 
+        if typeof(plr_target) == "string" then
+            local plr = Players:FindFirstChild(plr_target)
+            if plr and plr.Character then
+                targetInstance = plr.Character:FindFirstChild("Head") or plr.Character:FindFirstChild("HumanoidRootPart")
+            else
+                pcall(function()
+                    local path = plr_target:split("/")
+                    local obj = workspace
+                    for _, v in ipairs(path) do
+                        obj = obj and obj:FindFirstChild(v)
+                    end
+                    targetInstance = obj
+                end)
+            end
+        elseif typeof(plr_target) == "Instance" then
+            targetInstance = plr_target:FindFirstChild("HumanoidRootPart") or plr_target:FindFirstChild("Head") or plr_target
+        end
 
+        if targetInstance then
+            local cam = workspace.CurrentCamera
+            cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, targetInstance.Position), Options.AimlockSmooth.Value)
+        end
+    end
+end)
 LeftGroupBox = Combat:AddRightGroupbox("Silent Aim")
 
+pcallCheck(function()
 LeftGroupBox:AddToggle("SilentAimEnabled", {
     Text = "Silent Aim",
     Default = false,
@@ -1515,7 +1663,7 @@ Camera.ChildAdded:Connect(function(child)
     end
 end)
 
-
+end)
 
 local playerl = files.gca("player.png", "images")
 Plr = Window:AddTab('Player', playerl)
@@ -1826,6 +1974,7 @@ registerFuncAuto(function()
 
 
 CamTab = Plr:AddRightGroupbox('Camera')
+pcallCheck(function()
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
@@ -1969,7 +2118,7 @@ RemovalDropdownM:OnChanged(function()
 	end
 	applyAll()
 end)
-
+end)
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -2346,6 +2495,7 @@ end
 
 local TweenService = game:GetService("TweenService")
 
+pcallCheck(function()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CurrentCamera = workspace.CurrentCamera
@@ -2362,9 +2512,11 @@ local function getItemRoot()
     if not item then return nil end
     return item.PrimaryPart
 end
+end)
 
 
 pcall(function()
+pcallCheck(function()
         local Players = game:GetService("Players")
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local CurrentCamera = workspace.CurrentCamera
@@ -2472,6 +2624,7 @@ end
 
             return OriginalCreateBullet(table.unpack(args))
         end)
+    end)
 end)
 
 
