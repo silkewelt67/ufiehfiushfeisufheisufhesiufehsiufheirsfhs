@@ -1888,7 +1888,7 @@ Toggle:AddKeyPicker("HRPSpoofKey", {
 local oldCFrame
 
 RunService.Heartbeat:Connect(function()
-    if not spoofing or not HRP then return end
+    if spoofing or not HRP then return end
 
     oldCFrame = HRP.CFrame
 
