@@ -2048,6 +2048,27 @@ Toggle:AddKeyPicker("HRPSpoofKey", {
         spoofing = Toggle.Value
     end
 })
+
+--[[
+local voidEnabled = false
+
+local VoidToggle = AntiAimTab:AddToggle("VoidMode", {
+    Text = "Void",
+    Default = false,
+    Callback = function(v)
+        voidEnabled = v
+    end
+})
+
+local voidBind = VoidToggle:AddKeyPicker("VoidBind", {
+    Default = "None",
+    Text = "Void",
+    Mode = "Toggle",
+    SyncToggleState = true
+})
+]]
+local frameCounter = 0
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -2055,12 +2076,31 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 local HRP
+local frameCounter = 0
+local oldSpoofingState = false
 
 RunService.Heartbeat:Connect(function()
-    if spoofing or not HRP then return end
+    if not HRP then return end
+
+    local activeSpoofing = spoofing
+    if shotResolverEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        if not oldSpoofingState then oldSpoofingState = spoofing end
+        activeSpoofing = true
+    elseif oldSpoofingState ~= nil then
+        activeSpoofing = oldSpoofingState
+        oldSpoofingState = nil
+    end
+--[[
+    frameCounter = frameCounter + 1
+    if voidEnabled then
+        offsetX = 9e9
+        offsetY = 9e9
+        offsetZ = 9e9
+    end
+]]
+    if activeSpoofing then return end
 
     local oldCFrame = HRP.CFrame
-
     local posCf = CFrame.new(offsetX, offsetY, offsetZ)
     local rotCf = CFrame.Angles(rotX, rotY, rotZ)
     local spoofCf = posCf * rotCf
@@ -3086,29 +3126,6 @@ ts:TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)
 ThemeManager:ApplyToTab(USettings)
 SaveManager:LoadAutoloadConfig()
 
-local logoFadeDuration = 1.2
-local elapsed = 0
-local interval = 0.03
-
-while elapsed < logoFadeDuration do
-    local delta = interval
-    local randomOffset = math.random() * 0.5
-    Logo.ImageTransparency = math.clamp(elapsed / logoFadeDuration + randomOffset, 0, 1)
-    task.wait(interval)
-    elapsed = elapsed + delta
-end
-
-Logo:Destroy()
-
-local bgFadeDuration = 0.8
-elapsed = 0
-while elapsed < bgFadeDuration do
-    BlackBG.BackgroundTransparency = elapsed / bgFadeDuration
-    task.wait(interval)
-    elapsed = elapsed + interval
-end
-
-SplashGui:Destroy()
 
 end)
 registerFuncAuto(function()
@@ -4073,6 +4090,31 @@ IntensitySlider = Group:AddSlider("GlowIntensity", {
 end)
 registerFuncAuto(function()
 notifyl("logic","esp")
+
+
+local logoFadeDuration = 1.2
+local elapsed = 0
+local interval = 0.03
+
+while elapsed < logoFadeDuration do
+    local delta = interval
+    local randomOffset = math.random() * 0.5
+    Logo.ImageTransparency = math.clamp(elapsed / logoFadeDuration + randomOffset, 0, 1)
+    task.wait(interval)
+    elapsed = elapsed + delta
+end
+
+Logo:Destroy()
+
+local bgFadeDuration = 0.8
+elapsed = 0
+while elapsed < bgFadeDuration do
+    BlackBG.BackgroundTransparency = elapsed / bgFadeDuration
+    task.wait(interval)
+    elapsed = elapsed + interval
+end
+
+SplashGui:Destroy()
 
 finishLoading()
 end)
