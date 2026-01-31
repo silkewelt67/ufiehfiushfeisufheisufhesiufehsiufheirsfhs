@@ -375,6 +375,10 @@ end)
 
 local TargetLabel = Library:AddDraggableLabel("target = nil")
 
+local spoofTimer = 0
+local spoofActive = false
+local spoofTriggered = false
+
 task.spawn(function()
     while task.wait(0.1) do
         local targetName = "nil"
@@ -391,11 +395,24 @@ task.spawn(function()
             end
         end
 
-        TargetLabel:SetText("target = " .. targetName)
+        if spoofing then
+            spoofTriggered = true
+            spoofTimer = 0
+            spoofActive = false
+        elseif spoofTriggered then
+            spoofTimer = spoofTimer + 0.1
+            spoofActive = true
+        end
+
+        local text = "target = " .. targetName
+
+        if spoofActive then
+            text = text .. "\n[" .. math.floor(spoofTimer) .. "] spoofing"
+        end
+
+        TargetLabel:SetText(text)
     end
 end)
-
-
 
 local Players=game:GetService("Players")
 local LocalPlayer=Players.LocalPlayer
@@ -1875,7 +1892,7 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HRP = Character:WaitForChild("HumanoidRootPart")
 local Camera = workspace.CurrentCamera
 
-local spoofing = false
+spoofing = false
 local offsetX, offsetY, offsetZ = 0, 0, 0
 local rotX, rotY, rotZ = 0, 0, 0
 
@@ -1959,32 +1976,43 @@ Toggle:AddKeyPicker("HRPSpoofKey", {
         spoofing = Toggle.Value
     end
 })
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
-local oldCFrame
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local HRP
 
 RunService.Heartbeat:Connect(function()
     if spoofing or not HRP then return end
 
-    oldCFrame = HRP.CFrame
+    local oldCFrame = HRP.CFrame
 
-    local posOffset = CFrame.new(offsetX, offsetY, offsetZ)
-    local rotOffset = CFrame.Angles(rotX, rotY, rotZ)
+    local posCf = CFrame.new(offsetX, offsetY, offsetZ)
+    local rotCf = CFrame.Angles(rotX, rotY, rotZ)
+    local spoofCf = posCf * rotCf
 
-    HRP.CFrame = oldCFrame * posOffset * rotOffset
+    HRP.CFrame = oldCFrame * spoofCf
 
     RunService.RenderStepped:Wait()
 
     if HRP then
         HRP.CFrame = oldCFrame
+        local camPos = Camera.CFrame.Position - posCf.Position
+        Camera.CFrame = CFrame.new(camPos, camPos + Camera.CFrame.LookVector)
     end
 end)
 
-if UNIVERSAL then
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        HRP = char:WaitForChild("HumanoidRootPart")
-    end)
+local function onChar(char)
+    HRP = char:WaitForChild("HumanoidRootPart")
 end
 
+if LocalPlayer.Character then
+    onChar(LocalPlayer.Character)
+end
+
+LocalPlayer.CharacterAdded:Connect(onChar)
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2142,7 +2170,7 @@ local flyt = SpeedTab:AddToggle("FlyToggle", {
     Callback = function(val)
         flying = val
         if not flying then hrp.Velocity = Vector3.zero end
-    end
+    end 
 })
 
 flyt:AddKeyPicker("FlyKeybind", {
