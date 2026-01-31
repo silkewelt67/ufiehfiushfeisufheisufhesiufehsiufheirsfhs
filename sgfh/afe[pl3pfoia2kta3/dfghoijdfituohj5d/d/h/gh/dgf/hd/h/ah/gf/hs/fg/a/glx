@@ -68,11 +68,21 @@ else
     end
 end
 
+games = {
+    town = false,
+    projectdelta = false,
+}
+
 local name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name:lower()
 UNIVERSAL = true
 
 if name:find("project") or name:find("estonia") or name:find("city") then
     UNIVERSAL = false
+    games.projectdelta = true
+end
+
+if name:find("town") then
+    games.town = true
 end
 
 function pcallCheck(func)
@@ -434,6 +444,59 @@ for name,file in pairs(FontNames) do
  Fonts[name]=Font.new(RegisterFont(name,{Id=file,Font=asset}),Enum.FontWeight.Regular,Enum.FontStyle.Normal)
 end
 local logorb = files.gca("logo.png", "images")
+
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+
+if not isfolder("SOLUTIONS/assets/images") then
+    makefolder("SOLUTIONS/assets/images")
+end
+
+local imgPath = "SOLUTIONS/assets/images/solutions.png"
+
+if isfile(imgPath) then
+    delfile(imgPath)
+end
+
+writefile(imgPath, game:HttpGet("https://raw.githubusercontent.com/petal-cymk/assets/main/Screenshot%202026-01-31%20005934.png"))
+
+SplashGui = Instance.new("ScreenGui")
+SplashGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+SplashGui.DisplayOrder = 9999999
+SplashGui.Parent = CoreGui
+SplashGui.ResetOnSpawn = false
+SplashGui.IgnoreGuiInset = true
+
+BlackBG = Instance.new("Frame")
+BlackBG.Size = UDim2.new(1,0,1,0)
+BlackBG.Position = UDim2.new(0,0,0,0)
+BlackBG.BackgroundColor3 = Color3.fromRGB(0,0,0)
+BlackBG.BorderSizePixel = 0
+BlackBG.Parent = SplashGui
+BlackBG.BackgroundTransparency = 1
+BlackBG.ZIndex = 9999900000000
+
+Logo = Instance.new("ImageLabel")
+Logo.Size = UDim2.new(0, 600, 0, 300)
+Logo.AnchorPoint = Vector2.new(0.5,0.5)
+Logo.Position = UDim2.new(0.5,0,0.5,0)
+Logo.BackgroundTransparency = 1
+Logo.Image = getcustomasset(imgPath)
+Logo.Parent = SplashGui
+Logo.ImageTransparency = 1
+Logo.ScaleType = Enum.ScaleType.Fit
+Logo.ZIndex = 9999900000001
+
+fadeInBG = TweenService:Create(BlackBG, TweenInfo.new(0.5), {BackgroundTransparency = 0})
+fadeInLogo = TweenService:Create(Logo, TweenInfo.new(0.5), {ImageTransparency = 0})
+
+fadeInBG:Play()
+task.wait(0.5)
+fadeInLogo:Play()
+fadeInLogo.Completed:Wait()
+task.wait(0.5)
+
 Window = Library:CreateWindow({
 	Title = "solutions.gg",
 	Footer = "the only real free option.",
@@ -455,6 +518,7 @@ SubChamsPersonal=ChamSubtab:AddTab("Personalisation")
 CrosshairSubtab=Tabs.Main:AddRightTabbox()
 Subcross=CrosshairSubtab:AddTab('Crosshair')
 SubcrossP=CrosshairSubtab:AddTab("Personalisation")
+
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -2396,6 +2460,95 @@ registerFuncAuto(function()
 
 
 CamTab = Plr:AddRightGroupbox('Camera')
+if games.town then
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+
+    local plr = Players.LocalPlayer
+    local char = plr.Character or plr.CharacterAdded:Wait()
+    local viewmodelEnabled = false
+    local offset = Vector3.new(0.6, 0.15, 0)
+
+    CamTab:AddToggle("ViewmodelToggle", {
+        Text = "Viewmodel Editor",
+        Default = false,
+        Callback = function(val)
+            viewmodelEnabled = val
+        end
+    })
+local function createSlider(name, axis)
+    local default
+    if axis == 1 then default = offset.X
+    elseif axis == 2 then default = offset.Y
+    elseif axis == 3 then default = offset.Z
+    end
+
+    return CamTab:AddSlider(name, {
+        Text = "Offset "..axis,
+        Default = default,
+        Min = -2,
+        Max = 2,
+        Rounding = 2,
+        Callback = function(val)
+            offset = Vector3.new(
+                axis == 1 and val or offset.X,
+                axis == 2 and val or offset.Y,
+                axis == 3 and val or offset.Z
+            )
+        end
+    })
+end
+
+
+
+    createSlider("OffsetX", 1)
+    createSlider("OffsetY", 2)
+    createSlider("OffsetZ", 3)
+
+    local tools = {}
+
+    local function trackTool(tool)
+        if tool and tool:IsA("Tool") and tool:FindFirstChild("ViewModelOffset") then
+            tools[tool] = tool.ViewModelOffset
+            if viewmodelEnabled then
+                tool.ViewModelOffset.Value = offset
+            end
+        end
+    end
+
+    local function untrackTool(tool)
+        tools[tool] = nil
+    end
+
+    local function setupCharacter(c)
+        char = c
+        tools = {}
+
+        for _, child in ipairs(char:GetChildren()) do
+            trackTool(child)
+        end
+
+        char.ChildAdded:Connect(trackTool)
+        char.ChildRemoved:Connect(untrackTool)
+    end
+
+    setupCharacter(char)
+
+    plr.CharacterAdded:Connect(function(c)
+        wait(0.1)
+        setupCharacter(c)
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        if not viewmodelEnabled then return end
+        for _, vm in pairs(tools) do
+            if vm then
+                vm.Value = offset
+            end
+        end
+    end)
+end
+
 pcallCheck(function()
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
@@ -2895,7 +3048,29 @@ ts:TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)
 ThemeManager:ApplyToTab(USettings)
 SaveManager:LoadAutoloadConfig()
 
+local logoFadeDuration = 1.2
+local elapsed = 0
+local interval = 0.03
 
+while elapsed < logoFadeDuration do
+    local delta = interval
+    local randomOffset = math.random() * 0.5
+    Logo.ImageTransparency = math.clamp(elapsed / logoFadeDuration + randomOffset, 0, 1)
+    task.wait(interval)
+    elapsed = elapsed + delta
+end
+
+Logo:Destroy()
+
+local bgFadeDuration = 0.8
+elapsed = 0
+while elapsed < bgFadeDuration do
+    BlackBG.BackgroundTransparency = elapsed / bgFadeDuration
+    task.wait(interval)
+    elapsed = elapsed + interval
+end
+
+SplashGui:Destroy()
 
 end)
 registerFuncAuto(function()
