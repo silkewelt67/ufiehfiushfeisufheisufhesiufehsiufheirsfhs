@@ -90,7 +90,6 @@ function pcallCheck(func)
         local success, result = pcall(func)
         return success, result
     end
-warn("\nRuntimeException:\npcallCheck\nError caught in universal pcall check.\nAre you in an unsupported game?\n")
 end
 
 pcallCheck(function()
