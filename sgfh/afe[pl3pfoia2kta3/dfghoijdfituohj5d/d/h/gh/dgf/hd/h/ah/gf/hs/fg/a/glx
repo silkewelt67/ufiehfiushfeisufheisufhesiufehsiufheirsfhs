@@ -992,6 +992,104 @@ PersonalTab:AddToggle('RenderOutline', {
 
 GunMods = Combat:AddLeftGroupbox("Gunmods")
 
+if games.town then
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+local function lowerMap(tbl)
+    local map = {}
+    for k,v in pairs(tbl) do
+        if type(k) == "string" then
+            map[string.lower(k)] = k
+        end
+    end
+    return map
+end
+
+local function applySettings(mod, settings)
+    local ok, data = pcall(require, mod)
+    if not ok or type(data) ~= "table" then return end
+
+    local keymap = lowerMap(data)
+
+    local function set(name, value)
+        local real = keymap[string.lower(name)]
+        if real then
+            data[real] = value
+        end
+    end
+
+    for k,v in pairs(settings) do
+        set(k,v)
+    end
+end
+
+local function scan(char, settings)
+    for _,tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            for _,v in ipairs(tool:GetDescendants()) do
+                if v:IsA("ModuleScript") and string.lower(v.Name) == "settings" then
+                    applySettings(v, settings)
+                end
+            end
+        end
+    end
+end
+
+if lp.Character then
+    scan(lp.Character, {})
+end
+
+lp.CharacterAdded:Connect(function(char)
+    scan(char, {})
+end)
+
+local settingsTable = {}
+
+GunMods:AddToggle("RecoilToggle", {
+    Text = "Disable Recoil",
+    Default = false,
+    Tooltip = "Toggles normal gun recoil. When enabled, your gun will not kick vertically.",
+    Callback = function(v)
+        settingsTable["gunrecoil"] = v and 0 or nil
+        settingsTable["gunrecoilx"] = v and 0 or nil
+    end
+})
+
+GunMods:AddToggle("ScatterToggle", {
+    Text = "Disable Scatter",
+    Default = false,
+    Tooltip = "Toggles scatter/spread on bullets. When enabled, bullets will hit exactly where aimed.",
+    Callback = function(v)
+        settingsTable["scatter"] = v and 0 or nil
+    end
+})
+
+GunMods:AddInput("CustomSetting", {
+    Default = "",
+    Numeric = false,
+    Text = "Custom: name,value",
+    Tooltip = "Enter any setting you want to change in the format 'name,value'.\nExample: 'gunrecoil,0' or 'scatter,51551'.\nThe script will parse the name and apply the value automatically.",
+    Finished = function(txt)
+        local name, value = txt:match("([%w_]+)%s*,%s*(%-?%d+)")
+        if name and value then
+            settingsTable[name] = tonumber(value)
+        end
+    end
+})
+
+GunMods:AddButton("ApplySettings", {
+    Text = "Apply",
+    Tooltip = "Applies all toggled and custom values to your gun immediately. Will work for current and future tools.",
+    Callback = function()
+        if lp.Character then
+            scan(lp.Character, settingsTable)
+        end
+    end
+})
+end
+
+pcallCheck(function()
 local env = getgenv()
 env.RapidFireDelay = env.RapidFireDelay or 0.01
 
@@ -1314,7 +1412,7 @@ GunMods:AddSlider("rpm_slider", { Text = "Firerate", Default = 0.05, Min = 0, Ma
 GunMods:AddToggle("nospread", { Text = "No Spread", Default = false, Callback = function(v) states.nospread = v; applyAmmoMods() end })
 GunMods:AddToggle("nodrop", { Text = "No Drop", Default = false, Callback = function(v) states.nodrop = v; applyAmmoMods() end })
 GunMods:AddToggle("InstantEquip", { Text = "Instant Equip", Default = false, Callback = function(v) states.instantEquip = v end })
-
+end)
 task.spawn(function()
 pcallCheck(function()
 	while true do
