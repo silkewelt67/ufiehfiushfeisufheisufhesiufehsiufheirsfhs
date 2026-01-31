@@ -28,6 +28,7 @@ files.import("visual.png", "images", "https://raw.githubusercontent.com/petal-cy
 files.import("combat.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/maio%20%F0%9F%90%B1%20(1).png")
 files.import("player.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(4)%20(1)%20(1).png")
 files.import("world.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(5)%20(1).png")
+files.import("settings.png", "images", "https://raw.githubusercontent.com/petal-cymk/assets/main/download%20(6).png")
 
 print('break \n')
 print('\n')
@@ -631,15 +632,19 @@ end)
 
 boxEspEnabled, nameEspEnabled, hpBarEnabled, hpFlagEnabled = false, false, false, false
 visibleFlagEnabled, invisibleFlagEnabled = false, false
-itemFlagEnabled = falsed
+itemFlagEnabled = false
 rainbowBox,rainbowName,rainbowHP=false,false,false
+boxFillEnabled = false
 name_size=10
 nametagFont=Fonts.Minecraftia
 boxTopColor,boxBotColor,nameColor,hpTopColor,hpBotColor=Color3.new(1,1,1),Color3.new(1,1,1),Color3.new(1,1,1),Color3.fromRGB(0,255,0),Color3.fromRGB(255,0,0)
+boxFillTopColor, boxFillBotColor = Color3.fromRGB(255,255,255), Color3.fromRGB(0,0,0)
+boxFillTopTrans, boxFillBotTrans = 0.5, 0.5
 hpFlagPosition="Following"
 casingMode="Titlecase"
 
 SubESP:AddToggle("BoxESP",{Text="Box ESP",Default=false,Callback=function(v) boxEspEnabled=v end})
+SubESP:AddToggle("BoxFill",{Text="Box Fill",Default=false,Callback=function(v) boxFillEnabled=v end})
 SubESP:AddToggle("NameESP",{Text="Nametag ESP",Default=false,Callback=function(v) nameEspEnabled=v end})
 SubESP:AddToggle("HPBar",{Text="HP Bar",Default=false,Callback=function(v) hpBarEnabled=v end})
 SubESP:AddToggle("HPFlag",{Text="HP Flag",Default=false,Callback=function(v) hpFlagEnabled=v end})
@@ -728,6 +733,10 @@ SubPersonal:AddDropdown("NameCase",{Values={"Lowercase","Uppercase","Titlecase"}
 SubPersonal:AddToggle("RainbowBox",{Text="Rainbow Box",Default=false,Callback=function(v) rainbowBox=v end})
 SubPersonal:AddToggle("RainbowName",{Text="Rainbow Nametag",Default=false,Callback=function(v) rainbowName=v end})
 SubPersonal:AddToggle("RainbowHP",{Text="Rainbow HP",Default=false,Callback=function(v) rainbowHP=v end})
+local bfl = SubPersonal:AddLabel("Box Fill"):AddColorPicker("BoxFillTop",{Default=boxFillTopColor,Callback=function(c) boxFillTopColor=c end})
+SubPersonal:AddSlider("BoxFillTopTrans",{Text="Top Transparency",Min=0,Max=1,Default=boxFillTopTrans,Rounding=2,Callback=function(v) boxFillTopTrans=v end})
+bfl:AddColorPicker("BoxFillBot",{Default=boxFillBotColor,Callback=function(c) boxFillBotColor=c end})
+SubPersonal:AddSlider("BoxFillBotTrans",{Text="Bottom Transparency",Min=0,Max=1,Default=boxFillBotTrans,Rounding=2,Callback=function(v) boxFillBotTrans=v end})
 
 SubPersonal:AddLabel("Box"):AddColorPicker("BoxTop",{Default=boxTopColor,Callback=function(c) boxTopColor=c end}):AddColorPicker("BoxBot",{Default=boxBotColor,Callback=function(c) boxBotColor=c end})
 SubPersonal:AddLabel("Nametag"):AddColorPicker("Nametag",{Default=nameColor,Callback=function(c) nameColor=c end})
@@ -2075,7 +2084,39 @@ if LocalPlayer.Character then
     onChar(LocalPlayer.Character)
 end
 
-LocalPlayer.CharacterAdded:Connect(onChar)
+if UNIVERSAL then
+    LocalPlayer.CharacterAdded:Connect(onChar)
+end
+
+
+local shotResolverEnabled = false
+local oldSpoofingState = false
+
+local ShotResolverToggle = AntiAimTab:AddToggle("ShotResolver", {
+    Text = "Shot Resolver",
+    Tooltip = "Shooting means you will be send out of spoofing extremely briefly for just enough to hit people. This is useful in games with strict hitreg.",
+    Default = false,
+    Callback = function(v)
+        shotResolverEnabled = v
+    end
+})
+
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if not shotResolverEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        oldSpoofingState = spoofing
+        spoofing = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not shotResolverEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        spoofing = oldSpoofingState
+    end
+end)
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2765,7 +2806,6 @@ local model
 local cam = workspace.CurrentCamera
 
 local function setupVisuals(char)
-    -- cleanup old
     if model then
         model:Destroy()
         visuals = {}
@@ -2802,14 +2842,12 @@ local function setupVisuals(char)
     end
 end
 
--- first setup
 local char = plr.Character or plr.CharacterAdded:Wait()
 setupVisuals(char)
 
--- reconnect on respawn
 plr.CharacterAdded:Connect(function(c)
     char = c
-    wait(0.1) -- give parts time to load
+    wait(0.1)
     setupVisuals(char)
 end)
 
@@ -2975,7 +3013,8 @@ end)
 registerFuncAuto(function()
 notifyl("ui","plr")
 
-local USettings = Window:AddTab("UI Settings", "settings")
+local carigga = files.gca("settings.png", "images")
+local USettings = Window:AddTab("UI Settings", "carigga")
 local MenuGroup = USettings:AddLeftGroupbox("Menu", "wrench")
 MenuGroup:AddToggle("KeybindMenuOpen", {
 	Default = Library.KeybindFrame.Visible,
@@ -3453,6 +3492,21 @@ local function create_esp(player)
  barGradient.Color=ColorSequence.new(hpTopColor,hpBotColor)
  barGradient.Parent=bar
 
+ local boxFill = Instance.new("Frame")
+boxFill.Size = UDim2.new(1,0,1,0)
+boxFill.BackgroundTransparency = 1
+boxFill.BorderSizePixel = 0
+boxFill.ZIndex = 1
+boxFill.Parent = container
+
+local boxFillGradient = Instance.new("UIGradient")
+boxFillGradient.Rotation = 90
+boxFillGradient.Color = ColorSequence.new(
+    Color3.fromRGB(255,255,255),
+    Color3.fromRGB(0,0,0)
+)
+boxFillGradient.Parent = boxFill
+
  local flag=Instance.new("TextLabel")
  flag.Size=UDim2.new(0,15,0,name_size-3)
  flag.Position=UDim2.new(0,-2,0,0)
@@ -3560,6 +3614,9 @@ esp_objects[player] = {
     outline = stroke_outline,
     boxGradient = boxGradient,
 
+    boxFill = boxFill,
+    boxFillGradient = boxFillGradient,
+
     name = name,
     nameStroke = nameStroke,
 
@@ -3580,6 +3637,7 @@ esp_objects[player] = {
     godmodeFlag = godmodeFlag,
     godmodeStroke = godmodeStroke,
 }
+
 end
 
 local function remove_esp(player)
@@ -3639,6 +3697,20 @@ RunService.RenderStepped:Connect(function()
                 Color3.fromHSV((hue + 0.3) % 1, 1, 1)
             )
             or ColorSequence.new(boxTopColor, boxBotColor)
+
+        esp.boxFill.Visible = boxFillEnabled
+if esp.boxFill and esp.boxFillGradient then
+    esp.boxFill.Visible = boxFillEnabled
+    esp.boxFillGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, boxFillTopColor, boxFillTopTrans),
+        ColorSequenceKeypoint.new(1, boxFillBotColor, boxFillBotTrans)
+    })
+    esp.boxFill.BackgroundTransparency = boxFillEnabled and 0 or 1
+end
+
+esp.boxFill.BackgroundTransparency = boxFillEnabled and 0 or 1
+esp.boxFillGradient.Rotation = 90
+esp.boxFill.BackgroundTransparency = 1 - ((boxFillTopTrans + boxFillBotTrans)/2)
 
         esp.name.Visible = nameEspEnabled
         esp.name.Text = formatName(player.Name)
